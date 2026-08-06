@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-06T23:28:56.387Z",
+  "generatedAt": "2026-08-06T23:34:02.173Z",
   "collections": [
     {
       "name": "users",
@@ -29,24 +29,568 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate"
-          ]
+          "autodateTriggers": ["onCreate"]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate",
-            "onUpdate"
-          ]
+          "autodateTriggers": ["onCreate", "onUpdate"]
         }
       ],
       "indexes": [
         "CREATE UNIQUE INDEX `idx_tokenKey__pb_users_auth_` ON `users` (`tokenKey`)",
         "CREATE UNIQUE INDEX `idx_email__pb_users_auth_` ON `users` (`email`) WHERE `email` != ''"
+      ]
+    },
+    {
+      "name": "product_collections",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "handle",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_product_collections_handle ON product_collections (handle)"
+      ]
+    },
+    {
+      "name": "suppliers",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "contact_email",
+          "type": "email",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "phone",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": []
+    },
+    {
+      "name": "products",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "price",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "cost",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "stock",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "supplier",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "suppliers"
+        },
+        {
+          "name": "collection",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "product_collections"
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["rascunho", "publicado"]
+        },
+        {
+          "name": "images",
+          "type": "file",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "slug",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "seo_title",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "meta_description",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "keywords",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "alt_text",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "schema",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "faq",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "benefits",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "specifications",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "instagram_caption",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "instagram_hashtags",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "stories",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "carousel",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "email_marketing",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "sales_count",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_products_status ON products (status)",
+        "CREATE INDEX idx_products_created ON products (created DESC)",
+        "CREATE INDEX idx_products_price ON products (price)"
+      ]
+    },
+    {
+      "name": "orders",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "order_number",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "customer_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "customer_email",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "total",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["pending", "paid", "shipped", "delivered", "cancelled"]
+        },
+        {
+          "name": "items",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "source",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_orders_order_number ON orders (order_number)",
+        "CREATE INDEX idx_orders_status ON orders (status)",
+        "CREATE INDEX idx_orders_created ON orders (created DESC)"
+      ]
+    },
+    {
+      "name": "campaigns",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "type",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["desconto", "banner", "landing", "social"]
+        },
+        {
+          "name": "products",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "products"
+        },
+        {
+          "name": "coupon_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "discount_percent",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "spend",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["draft", "active", "paused", "ended"]
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_campaigns_status ON campaigns (status)",
+        "CREATE INDEX idx_campaigns_type ON campaigns (type)"
+      ]
+    },
+    {
+      "name": "banners",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "title",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "subtitle",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "image",
+          "type": "file",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "link",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "position",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["hero", "promo", "footer"]
+        },
+        {
+          "name": "active",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_banners_position ON banners (position)",
+        "CREATE INDEX idx_banners_active ON banners (active)"
+      ]
+    },
+    {
+      "name": "analytics_events",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "event_type",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["visit", "sale", "conversion"]
+        },
+        {
+          "name": "product",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "products"
+        },
+        {
+          "name": "value",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "source",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_analytics_events_type ON analytics_events (event_type)",
+        "CREATE INDEX idx_analytics_events_created ON analytics_events (created DESC)"
       ]
     }
   ]

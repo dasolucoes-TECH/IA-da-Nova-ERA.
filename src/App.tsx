@@ -1,27 +1,53 @@
-/* Main App Component - Handles routing (using react-router-dom), query client and other providers - use this file to add all routes */
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { Toaster } from '@/components/ui/toaster'
 import { Toaster as Sonner } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
-import Index from './pages/Index'
-import NotFound from './pages/NotFound'
+import { AuthProvider } from '@/hooks/use-auth'
+import { ProtectedRoute } from '@/components/ProtectedRoute'
 import Layout from './components/Layout'
 
-// ONLY IMPORT AND RENDER WORKING PAGES, NEVER ADD PLACEHOLDER COMPONENTS OR PAGES IN THIS FILE
-// AVOID REMOVING ANY CONTEXT PROVIDERS FROM THIS FILE (e.g. TooltipProvider, Toaster, Sonner)
+import Index from './pages/Index'
+import Dashboard from './pages/Dashboard'
+import Produtos from './pages/Produtos'
+import Shopify from './pages/Shopify'
+import Marketing from './pages/Marketing'
+import InstagramPage from './pages/Instagram'
+import SeoPage from './pages/Seo'
+import AnalyticsPage from './pages/AnalyticsPage'
+import BannersPage from './pages/BannersPage'
+import IaPage from './pages/IaPage'
+import Configuracoes from './pages/Configuracoes'
+import NotFound from './pages/NotFound'
 
 const App = () => (
   <BrowserRouter>
     <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <Routes>
-        <Route element={<Layout />}>
+      <AuthProvider>
+        <Toaster />
+        <Sonner />
+        <Routes>
           <Route path="/" element={<Index />} />
-          {/* ADD ALL CUSTOM ROUTES MUST BE ADDED HERE */}
-        </Route>
-        <Route path="*" element={<NotFound />} />
-      </Routes>
+          <Route
+            element={
+              <ProtectedRoute>
+                <Layout />
+              </ProtectedRoute>
+            }
+          >
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/produtos" element={<Produtos />} />
+            <Route path="/shopify" element={<Shopify />} />
+            <Route path="/marketing" element={<Marketing />} />
+            <Route path="/instagram" element={<InstagramPage />} />
+            <Route path="/seo" element={<SeoPage />} />
+            <Route path="/analytics" element={<AnalyticsPage />} />
+            <Route path="/banners" element={<BannersPage />} />
+            <Route path="/ia" element={<IaPage />} />
+            <Route path="/configuracoes" element={<Configuracoes />} />
+          </Route>
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </AuthProvider>
     </TooltipProvider>
   </BrowserRouter>
 )
