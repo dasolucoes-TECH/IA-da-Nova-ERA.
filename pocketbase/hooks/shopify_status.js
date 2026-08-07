@@ -36,17 +36,13 @@ routerAdd(
         })
       }
 
-      if (
-        !token.startsWith('shpat_') &&
-        !token.startsWith('shpss_') &&
-        !token.startsWith('shppa_')
-      ) {
+      if (!token.startsWith('shpat_')) {
         return e.json(200, {
           connected: false,
           storeDomain: domain,
           apiVersion: '',
           message:
-            'SHOPIFY_ACCESS_TOKEN inválido. O token deve começar com "shpat_" (Admin API access token). Verifique no painel de Custom Apps da Shopify.',
+            'SHOPIFY_ACCESS_TOKEN inválido. O token de acesso Admin API deve começar com "shpat_". Acesse a aba Secrets no painel do Skip Cloud, atualize o secret SHOPIFY_ACCESS_TOKEN com um token válido (gerado no painel de Custom Apps da Shopify) e clique novamente em "Verificar Conexão". Tokens do tipo shpss_ (partner app secret) não são mais suportados.',
         })
       }
 
@@ -63,7 +59,7 @@ routerAdd(
         })
       }
 
-      const apiVersion = '2024-10'
+      const apiVersion = $secrets.get('SHOPIFY_API_VERSION') || '2024-10'
       const url = 'https://' + cleanDomain + '/admin/api/' + apiVersion + '/shop.json'
 
       let res

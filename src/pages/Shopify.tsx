@@ -254,6 +254,10 @@ export default function Shopify() {
           </div>
 
           <div className="flex flex-wrap gap-2">
+            <Button onClick={loadStatus} disabled={loadingStatus} className="rounded-xl">
+              <RefreshCw className={`w-4 h-4 mr-2 ${loadingStatus ? 'animate-spin' : ''}`} />
+              Verificar Conexão
+            </Button>
             <Button
               onClick={handleSyncProducts}
               disabled={!isConnected || syncingProducts}
@@ -280,7 +284,42 @@ export default function Shopify() {
         <Alert variant="destructive" className="rounded-2xl">
           <AlertTriangle className="w-4 h-4" />
           <AlertTitle>Problema na Conexão Shopify</AlertTitle>
-          <AlertDescription className="text-sm">{status?.message}</AlertDescription>
+          <AlertDescription className="text-sm space-y-3">
+            <p>{status?.message}</p>
+            <div className="rounded-lg bg-destructive/10 p-3 text-xs space-y-2">
+              <p className="font-semibold">Como resolver:</p>
+              <ol className="list-decimal list-inside space-y-1">
+                <li>
+                  Acesse a aba <strong>Secrets</strong> no painel do Skip Cloud
+                </li>
+                <li>
+                  Configure o secret{' '}
+                  <code className="font-mono bg-destructive/20 px-1 rounded">
+                    SHOPIFY_ACCESS_TOKEN
+                  </code>{' '}
+                  com um token Admin API válido (deve começar com{' '}
+                  <code className="font-mono bg-destructive/20 px-1 rounded">shpat_</code>)
+                </li>
+                <li>
+                  Configure o secret{' '}
+                  <code className="font-mono bg-destructive/20 px-1 rounded">
+                    SHOPIFY_STORE_DOMAIN
+                  </code>{' '}
+                  com o domínio da loja (ex:{' '}
+                  <code className="font-mono bg-destructive/20 px-1 rounded">
+                    sualoja.myshopify.com
+                  </code>
+                  )
+                </li>
+                <li>Clique novamente em "Verificar Conexão" acima</li>
+              </ol>
+              <p className="text-destructive/80 pt-1">
+                ⚠️ Tokens do tipo <code className="font-mono">shpss_</code> (partner app secret) não
+                são mais suportados. Use um Admin API access token (
+                <code className="font-mono">shpat_</code>).
+              </p>
+            </div>
+          </AlertDescription>
         </Alert>
       )}
 
