@@ -1,22 +1,21 @@
 import { useEffect, useState, useCallback } from 'react'
-import { Link } from 'react-router-dom'
 import {
-  ShoppingBag,
   CheckCircle,
   Globe,
   RefreshCw,
-  ExternalLink,
-  Lock,
   Package,
   ShoppingCart,
   Upload,
-  AlertCircle,
   Wifi,
   WifiOff,
+  AlertTriangle,
+  Clock,
+  Mail,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { toast } from '@/components/ui/use-toast'
 import {
   getShopifyStatus,
@@ -53,6 +52,20 @@ const integrations = [
   { name: 'Resend Email API', icon: '✉️', description: 'Requer configuração de chave de API.' },
   { name: 'Cloudinary CDN', icon: '🖼️', description: 'Requer configuração de chave de API.' },
 ]
+
+function formatDate(iso: string): string {
+  if (!iso) return '—'
+  try {
+    return new Date(iso).toLocaleString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+  } catch {
+    return iso
+  }
+}
 
 export default function Shopify() {
   const [status, setStatus] = useState<ShopifyStatus | null>(null)
@@ -96,13 +109,15 @@ export default function Shopify() {
       const result = await syncProducts()
       toast({
         title: 'Sincronização de Produtos Concluída',
-        description: `${result.created} produtos importados, ${result.updated} atualizados.`,
+        description: `${result.created} produtos importados, ${result.updated} atualizados${
+          result.errors.length > 0 ? `, ${result.errors.length} erros` : ''
+        }.`,
       })
       loadStatus()
       loadProducts()
     } catch (e) {
       toast({
-        title: 'Erro na Sincronização',
+        title: 'Erro na Sincronização de Produtos',
         description: getErrorMessage(e),
         variant: 'destructive',
       })
@@ -117,12 +132,14 @@ export default function Shopify() {
       const result = await syncOrders()
       toast({
         title: 'Sincronização de Pedidos Concluída',
-        description: `${result.created} pedidos importados, ${result.updated} atualizados.`,
+        description: `${result.created} pedidos importados, ${result.updated} atualizados${
+          result.errors.length > 0 ? `, ${result.errors.length} erros` : ''
+        }.`,
       })
       loadStatus()
     } catch (e) {
       toast({
-        title: 'Erro na Sincronização',
+        title: 'Erro na Sincronização de Pedidos',
         description: getErrorMessage(e),
         variant: 'destructive',
       })
@@ -136,7 +153,7 @@ export default function Shopify() {
     try {
       const result = await publishProduct(id)
       toast({
-        title: 'Produto Publicado na Shopify',
+        title: result.reused ? 'Draft Reutilizado' : 'Produto Publicado na Shopify',
         description: `${name} → Draft #${result.draftId} (${result.status}). ${result.message}`,
       })
       loadProducts()
@@ -153,6 +170,7 @@ export default function Shopify() {
 
   const draftProducts = products.filter((p) => p.status === 'rascunho' || !p.shopify_draft_id)
   const isConnected = status?.connected === true
+  const hasErrorMessage = !isConnected && !!status?.message
 
   return (
     <div className="space-y-6">
@@ -195,15 +213,38 @@ export default function Shopify() {
                 </Badge>
               </div>
               {isConnected ? (
-                <p className="text-xs text-slate-500 flex items-center gap-1 mt-1">
-                  <Globe className="w-3.5 h-3.5" /> {status?.storeDomain} · API {status?.apiVersion}
-                  {status?.syncedProducts !== undefined && (
-                    <span className="ml-2">· {status.syncedProducts} produtos sincronizados</span>
+                <div className="space-y-1 mt-1">
+                  <p className="text-xs text-slate-500 flex items-center gap-1">
+                    <Globe className="w-3.5 h-3.5" /> {status?.storeDomain} · API{' '}
+                    {status?.apiVersion}
+                    {status?.shopCurrency && <span className="ml-1">· {status.shopCurrency}</span>}
+                  </p>
+                  {(status?.shopEmail ||
+                    status?.syncedProducts !== undefined ||
+                    status?.syncedOrders !== undefined) && (
+                    <p className="text-xs text-slate-500 flex items-center gap-2 flex-wrap">
+                      {status?.shopEmail && (
+                        <span className="flex items-center gap-1">
+                          <Mail className="w-3 h-3" /> {status.shopEmail}
+                        </span>
+                      )}
+                      {status?.syncedProducts !== undefined && (
+                        <span>· {status.syncedProducts} produtos sincronizados</span>
+                      )}
+                      {status?.syncedOrders !== undefined && (
+                        <span>· {status.syncedOrders} pedidos sincronizados</span>
+                      )}
+                    </p>
                   )}
-                  {status?.syncedOrders !== undefined && (
-                    <span className="ml-1">· {status.syncedOrders} pedidos sincronizados</span>
+                  {(status?.lastProductSync || status?.lastOrderSync) && (
+                    <p className="text-xs text-slate-400 flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      Última sync produtos: {formatDate(status?.lastProductSync || '')}
+                      {' · '}
+                      pedidos: {formatDate(status?.lastOrderSync || '')}
+                    </p>
                   )}
-                </p>
+                </div>
               ) : (
                 <p className="text-xs text-amber-500 mt-1">
                   {status?.message || 'Conexão não configurada.'}
@@ -234,6 +275,14 @@ export default function Shopify() {
           </div>
         </CardContent>
       </Card>
+
+      {hasErrorMessage && (
+        <Alert variant="destructive" className="rounded-2xl">
+          <AlertTriangle className="w-4 h-4" />
+          <AlertTitle>Problema na Conexão Shopify</AlertTitle>
+          <AlertDescription className="text-sm">{status?.message}</AlertDescription>
+        </Alert>
+      )}
 
       <Card className="rounded-2xl border-0 shadow-elevation bg-white dark:bg-[#071B3B]">
         <CardHeader>
@@ -345,16 +394,24 @@ export default function Shopify() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() =>
-                    toast({
-                      title: item.name,
-                      description:
-                        'Insira sua chave de API nas Configurações quando desejar integrar ao serviço externo real.',
-                    })
-                  }
                   className="w-full text-xs rounded-xl"
+                  disabled={!isConnected && item.name === 'Shopify Admin API'}
+                  onClick={() => {
+                    if (item.name === 'Shopify Admin API') {
+                      loadStatus()
+                      toast({ title: 'Status atualizado', description: 'Verificando conexão...' })
+                    } else {
+                      toast({
+                        title: item.name,
+                        description:
+                          'Insira sua chave de API nas Configurações quando desejar integrar ao serviço externo real.',
+                      })
+                    }
+                  }}
                 >
-                  <Lock className="w-3 h-3 mr-1" /> Configurar Credenciais
+                  {item.name === 'Shopify Admin API'
+                    ? 'Verificar Conexão'
+                    : 'Configurar Credenciais'}
                 </Button>
               </CardContent>
             </Card>

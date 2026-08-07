@@ -14,7 +14,29 @@ routerAdd(
       if (!token || !domain) {
         return e.json(400, {
           error:
-            'Conexão não configurada. Configure SHOPIFY_ACCESS_TOKEN e SHOPIFY_STORE_DOMAIN nos secrets do Skip Cloud.',
+            'Conexão não configurada. Defina SHOPIFY_ACCESS_TOKEN e SHOPIFY_STORE_DOMAIN nos secrets do Skip Cloud.',
+        })
+      }
+
+      if (
+        !token.startsWith('shpat_') &&
+        !token.startsWith('shpss_') &&
+        !token.startsWith('shppa_')
+      ) {
+        return e.json(400, {
+          error: 'SHOPIFY_ACCESS_TOKEN inválido. O token deve começar com "shpat_".',
+        })
+      }
+
+      var cleanDomain = domain
+        .trim()
+        .toLowerCase()
+        .replace(/^https?:\/\//, '')
+        .replace(/\/.*$/, '')
+
+      if (!cleanDomain.match(/^[a-z0-9][a-z0-9\-]*\.myshopify\.com$/)) {
+        return e.json(400, {
+          error: 'SHOPIFY_STORE_DOMAIN inválido. Use o formato "sualoja.myshopify.com".',
         })
       }
 
@@ -30,18 +52,10 @@ routerAdd(
       const existingDraftId = product.getString('shopify_draft_id')
 
       const apiVersion = '2024-10'
-      const url = 'https://' + domain + '/admin/api/' + apiVersion + '/draft_orders.json'
+      const baseUrl = 'https://' + cleanDomain + '/admin/api/' + apiVersion
 
-      let draftBody
       if (existingDraftId) {
-        const fetchUrl =
-          'https://' +
-          domain +
-          '/admin/api/' +
-          apiVersion +
-          '/draft_orders/' +
-          existingDraftId +
-          '.json'
+        const fetchUrl = baseUrl + '/draft_orders/' + existingDraftId + '.json'
         let fetchRes
         try {
           fetchRes = $http.send({
@@ -74,7 +88,15 @@ routerAdd(
             reused: true,
           })
         }
+
+        if (fetchRes.statusCode === 404) {
+          // Draft was deleted on Shopify, clear stale id and continue to create new
+          product.set('shopify_draft_id', '')
+          $app.save(product)
+        }
       }
+
+      const url = baseUrl + '/draft_orders.json'
 
       const payload = {
         draft_order: {
@@ -104,12 +126,21 @@ routerAdd(
         return e.json(502, { error: 'Falha de rede ao criar draft order: ' + String(err) })
       }
 
+      if (res.statusCode === 401 || res.statusCode === 403) {
+        return e.json(res.statusCode, {
+          error:
+            'Token recusado pela Shopify (HTTP ' +
+            res.statusCode +
+            '). Certifique-se de que o Custom App tem a permissão write_draft_orders.',
+        })
+      }
+
       if (res.statusCode !== 201 && res.statusCode !== 200) {
         let errMsg = 'Shopify retornou status ' + res.statusCode
         try {
           const errBody = res.json
           if (errBody && errBody.errors) {
-            errMsg = JSON.stringify(errBody.errors)
+            errMsg = 'Shopify: ' + JSON.stringify(errBody.errors)
           }
         } catch (_) {}
         return e.json(res.statusCode, { error: errMsg })
@@ -119,7 +150,7 @@ routerAdd(
       try {
         responseBody = res.json
       } catch (_) {
-        return e.json(500, { error: 'Resposta inválida do Shopify' })
+        return e.json(500, { error: 'Resposta inválida do Shopify ao criar draft order.' })
       }
 
       const draft = responseBody.draft_order || {}

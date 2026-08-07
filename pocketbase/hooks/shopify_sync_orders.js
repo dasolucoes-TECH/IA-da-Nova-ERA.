@@ -9,13 +9,37 @@ routerAdd(
       if (!token || !domain) {
         return e.json(400, {
           error:
-            'Conexão não configurada. Configure SHOPIFY_ACCESS_TOKEN e SHOPIFY_STORE_DOMAIN nos secrets do Skip Cloud.',
+            'Conexão não configurada. Defina SHOPIFY_ACCESS_TOKEN (começando com shpat_) e SHOPIFY_STORE_DOMAIN (formato sualoja.myshopify.com) nos secrets do Skip Cloud.',
+        })
+      }
+
+      if (
+        !token.startsWith('shpat_') &&
+        !token.startsWith('shpss_') &&
+        !token.startsWith('shppa_')
+      ) {
+        return e.json(400, {
+          error:
+            'SHOPIFY_ACCESS_TOKEN inválido. O token deve começar com "shpat_". Gere um novo token no painel de Custom Apps da Shopify.',
+        })
+      }
+
+      var cleanDomain = domain
+        .trim()
+        .toLowerCase()
+        .replace(/^https?:\/\//, '')
+        .replace(/\/.*$/, '')
+
+      if (!cleanDomain.match(/^[a-z0-9][a-z0-9\-]*\.myshopify\.com$/)) {
+        return e.json(400, {
+          error:
+            'SHOPIFY_STORE_DOMAIN inválido. Use o formato "sualoja.myshopify.com" sem https:// ou /admin.',
         })
       }
 
       const apiVersion = '2024-10'
       const url =
-        'https://' + domain + '/admin/api/' + apiVersion + '/orders.json?limit=250&status=any'
+        'https://' + cleanDomain + '/admin/api/' + apiVersion + '/orders.json?limit=250&status=any'
 
       let res
       try {
@@ -29,18 +53,37 @@ routerAdd(
           timeout: 30,
         })
       } catch (err) {
-        return e.json(502, { error: 'Falha de rede ao buscar pedidos: ' + String(err) })
+        return e.json(502, {
+          error:
+            'Falha de rede ao buscar pedidos da Shopify. Verifique conectividade e o domínio "' +
+            cleanDomain +
+            '". Erro: ' +
+            String(err),
+        })
+      }
+
+      if (res.statusCode === 401 || res.statusCode === 403) {
+        return e.json(res.statusCode, {
+          error:
+            'Token recusado pela Shopify (HTTP ' +
+            res.statusCode +
+            '). Certifique-se de que o Custom App tem a permissão read_orders.',
+        })
       }
 
       if (res.statusCode !== 200) {
-        return e.json(res.statusCode, { error: 'Shopify retornou status ' + res.statusCode })
+        return e.json(res.statusCode, {
+          error: 'Shopify retornou status ' + res.statusCode + ' ao buscar pedidos.',
+        })
       }
 
       let body
       try {
         body = res.json
       } catch (_) {
-        return e.json(500, { error: 'Resposta inválida do Shopify' })
+        return e.json(500, {
+          error: 'Resposta inválida do Shopify — não foi possível decodificar o JSON.',
+        })
       }
 
       const orders = body.orders || []
@@ -82,14 +125,14 @@ routerAdd(
           }
         })
 
+        const customerName = so.customer
+          ? (so.customer.first_name + ' ' + so.customer.last_name).trim()
+          : ''
+        const orderNumber = so.name || '#' + so.id
+
         if (existing) {
-          existing.set('order_number', so.name || existing.getString('order_number'))
-          existing.set(
-            'customer_name',
-            so.customer
-              ? (so.customer.first_name + ' ' + so.customer.last_name).trim()
-              : existing.getString('customer_name'),
-          )
+          existing.set('order_number', orderNumber || existing.getString('order_number'))
+          existing.set('customer_name', customerName || existing.getString('customer_name'))
           existing.set('customer_email', so.email || existing.getString('customer_email'))
           existing.set('total', parseFloat(so.total_price) || 0)
           existing.set('status', mappedStatus)
@@ -104,11 +147,8 @@ routerAdd(
         } else {
           try {
             const rec = new Record(orderCol)
-            rec.set('order_number', so.name || '#' + so.id)
-            rec.set(
-              'customer_name',
-              so.customer ? (so.customer.first_name + ' ' + so.customer.last_name).trim() : '',
-            )
+            rec.set('order_number', orderNumber)
+            rec.set('customer_name', customerName)
             rec.set('customer_email', so.email || '')
             rec.set('total', parseFloat(so.total_price) || 0)
             rec.set('status', mappedStatus)

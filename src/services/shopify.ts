@@ -5,8 +5,12 @@ export interface ShopifyStatus {
   storeDomain: string
   apiVersion: string
   shopName?: string
+  shopEmail?: string
+  shopCurrency?: string
   syncedProducts?: number
   syncedOrders?: number
+  lastProductSync?: string
+  lastOrderSync?: string
   message?: string
 }
 

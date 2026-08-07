@@ -6,18 +6,65 @@ routerAdd(
       const token = $secrets.get('SHOPIFY_ACCESS_TOKEN') || ''
       const domain = $secrets.get('SHOPIFY_STORE_DOMAIN') || ''
 
-      if (!token || !domain) {
+      if (!token && !domain) {
         return e.json(200, {
           connected: false,
-          storeDomain: domain || '',
+          storeDomain: '',
           apiVersion: '',
           message:
-            'Conexão não configurada. Configure SHOPIFY_ACCESS_TOKEN e SHOPIFY_STORE_DOMAIN nos secrets do Skip Cloud.',
+            'SHOPIFY_ACCESS_TOKEN e SHOPIFY_STORE_DOMAIN não configurados. Acesse os secrets do Skip Cloud e configure ambos os valores.',
+        })
+      }
+
+      if (!token) {
+        return e.json(200, {
+          connected: false,
+          storeDomain: domain,
+          apiVersion: '',
+          message:
+            'SHOPIFY_ACCESS_TOKEN está vazio. Gere um token no painel de Custom Apps da Shopify (deve começar com shpat_).',
+        })
+      }
+
+      if (!domain) {
+        return e.json(200, {
+          connected: false,
+          storeDomain: '',
+          apiVersion: '',
+          message:
+            'SHOPIFY_STORE_DOMAIN está vazio. Informe o domínio da loja no formato sualoja.myshopify.com (sem https:// ou /admin).',
+        })
+      }
+
+      if (
+        !token.startsWith('shpat_') &&
+        !token.startsWith('shpss_') &&
+        !token.startsWith('shppa_')
+      ) {
+        return e.json(200, {
+          connected: false,
+          storeDomain: domain,
+          apiVersion: '',
+          message:
+            'SHOPIFY_ACCESS_TOKEN inválido. O token deve começar com "shpat_" (Admin API access token). Verifique no painel de Custom Apps da Shopify.',
+        })
+      }
+
+      var cleanDomain = domain.trim().toLowerCase()
+      cleanDomain = cleanDomain.replace(/^https?:\/\//, '').replace(/\/.*$/, '')
+
+      if (!cleanDomain.match(/^[a-z0-9][a-z0-9\-]*\.myshopify\.com$/)) {
+        return e.json(200, {
+          connected: false,
+          storeDomain: domain,
+          apiVersion: '',
+          message:
+            'SHOPIFY_STORE_DOMAIN inválido. Use o formato "sualoja.myshopify.com" sem https://, barras ou /admin.',
         })
       }
 
       const apiVersion = '2024-10'
-      const url = 'https://' + domain + '/admin/api/' + apiVersion + '/shop.json'
+      const url = 'https://' + cleanDomain + '/admin/api/' + apiVersion + '/shop.json'
 
       let res
       try {
@@ -33,19 +80,59 @@ routerAdd(
       } catch (err) {
         return e.json(200, {
           connected: false,
-          storeDomain: domain,
+          storeDomain: cleanDomain,
           apiVersion: apiVersion,
-          message: 'Falha de rede ao conectar com Shopify: ' + String(err),
+          message:
+            'Falha de rede ao conectar com a Shopify. Verifique se o domínio "' +
+            cleanDomain +
+            '" está correto e se há conectividade. Erro: ' +
+            String(err),
+        })
+      }
+
+      if (res.statusCode === 401 || res.statusCode === 403) {
+        let hint = 'Token de acesso recusado pela Shopify (HTTP ' + res.statusCode + ').'
+        hint +=
+          ' Gere um novo token no painel de Custom Apps e certifique-se de conceder as permissões: read_products, write_products, read_orders, write_orders, read_inventory, write_inventory.'
+        return e.json(200, {
+          connected: false,
+          storeDomain: cleanDomain,
+          apiVersion: apiVersion,
+          message: hint,
+        })
+      }
+
+      if (res.statusCode === 404) {
+        return e.json(200, {
+          connected: false,
+          storeDomain: cleanDomain,
+          apiVersion: apiVersion,
+          message:
+            'Loja não encontrada na Shopify (HTTP 404). Verifique se o domínio "' +
+            cleanDomain +
+            '" corresponde a uma loja ativa.',
+        })
+      }
+
+      if (res.statusCode === 429) {
+        return e.json(200, {
+          connected: false,
+          storeDomain: cleanDomain,
+          apiVersion: apiVersion,
+          message:
+            'Limite de taxa da Shopify atingido (HTTP 429). Aguarde alguns instantes e tente novamente.',
         })
       }
 
       if (res.statusCode !== 200) {
         return e.json(200, {
           connected: false,
-          storeDomain: domain,
+          storeDomain: cleanDomain,
           apiVersion: apiVersion,
           message:
-            'Shopify respondeu com status ' + res.statusCode + '. Verifique o token de acesso.',
+            'Shopify respondeu com status ' +
+            res.statusCode +
+            '. Verifique o token de acesso e as permissões do Custom App.',
         })
       }
 
@@ -56,23 +143,34 @@ routerAdd(
 
       let productCount = 0
       let orderCount = 0
+      let lastProductSync = ''
+      let lastOrderSync = ''
       try {
-        const prodCol = $app.findCollectionByNameOrId('products')
         const prods = $app.findRecordsByFilter('products', "shopify_id != ''", '-created', 500, 0)
         productCount = prods.length
+        if (prods.length > 0 && prods[0].getString('updated')) {
+          lastProductSync = prods[0].getString('updated')
+        }
       } catch (_) {}
       try {
         const ords = $app.findRecordsByFilter('orders', "shopify_id != ''", '-created', 500, 0)
         orderCount = ords.length
+        if (ords.length > 0 && ords[0].getString('updated')) {
+          lastOrderSync = ords[0].getString('updated')
+        }
       } catch (_) {}
 
       return e.json(200, {
         connected: true,
-        storeDomain: domain,
+        storeDomain: cleanDomain,
         apiVersion: apiVersion,
         shopName: shopData.shop ? shopData.shop.name : '',
+        shopEmail: shopData.shop ? shopData.shop.email || '' : '',
+        shopCurrency: shopData.shop ? shopData.shop.currency || '' : '',
         syncedProducts: productCount,
         syncedOrders: orderCount,
+        lastProductSync: lastProductSync,
+        lastOrderSync: lastOrderSync,
       })
     } catch (err) {
       return e.json(500, { error: 'Erro ao verificar status: ' + String(err) })
