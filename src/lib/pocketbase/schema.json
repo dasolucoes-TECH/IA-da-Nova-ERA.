@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-06T23:34:02.173Z",
+  "generatedAt": "2026-08-07T20:26:24.062Z",
   "collections": [
     {
       "name": "users",
@@ -303,12 +303,25 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "shopify_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "shopify_draft_id",
+          "type": "text",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [
         "CREATE INDEX idx_products_status ON products (status)",
         "CREATE INDEX idx_products_created ON products (created DESC)",
-        "CREATE INDEX idx_products_price ON products (price)"
+        "CREATE INDEX idx_products_price ON products (price)",
+        "CREATE INDEX `idx_products_shopify_id` ON `products` (shopify_id)"
       ]
     },
     {
@@ -378,12 +391,19 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "shopify_id",
+          "type": "text",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [
         "CREATE UNIQUE INDEX idx_orders_order_number ON orders (order_number)",
         "CREATE INDEX idx_orders_status ON orders (status)",
-        "CREATE INDEX idx_orders_created ON orders (created DESC)"
+        "CREATE INDEX idx_orders_created ON orders (created DESC)",
+        "CREATE INDEX `idx_orders_shopify_id` ON `orders` (shopify_id)"
       ]
     },
     {

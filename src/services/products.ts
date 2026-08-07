@@ -25,6 +25,8 @@ export interface ProductRecord {
   carousel?: string
   email_marketing?: string
   sales_count?: number
+  shopify_id?: string
+  shopify_draft_id?: string
   created?: string
   updated?: string
   expand?: {
