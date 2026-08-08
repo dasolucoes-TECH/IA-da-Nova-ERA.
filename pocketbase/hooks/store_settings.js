@@ -4,9 +4,14 @@ routerAdd(
   (e) => {
     try {
       var userId = e.auth ? e.auth.id : ''
-      if (!userId) return e.unauthorizedError('Autenticação necessária')
+      if (!userId) return e.unauthorizedError('Auth required')
 
-      var storeRecord = $app.__shopifyGetStore()
+      var storeRecord = null
+      try {
+        var stores = $app.findRecordsByFilter('stores', "id != ''", 'created', 1, 0)
+        if (stores.length > 0) storeRecord = stores[0]
+      } catch (_) {}
+
       if (!storeRecord) return e.json(200, {})
 
       return e.json(200, {
@@ -20,7 +25,7 @@ routerAdd(
         last_order_sync: storeRecord.getString('last_order_sync') || '',
       })
     } catch (err) {
-      return e.internalServerError('Erro: ' + String(err))
+      return e.internalServerError('Error: ' + String(err))
     }
   },
   $apis.requireAuth(),
@@ -32,30 +37,37 @@ routerAdd(
   (e) => {
     try {
       var userId = e.auth ? e.auth.id : ''
-      if (!userId) return e.unauthorizedError('Autenticação necessária')
+      if (!userId) return e.unauthorizedError('Auth required')
 
       var body = e.requestInfo().body || {}
-      var storeRecord = $app.__shopifyGetStore()
-      if (!storeRecord) return e.json(404, { error: 'Loja não encontrada' })
+      var storeRecord = null
+      try {
+        var stores = $app.findRecordsByFilter('stores', "id != ''", 'created', 1, 0)
+        if (stores.length > 0) storeRecord = stores[0]
+      } catch (_) {}
+
+      if (!storeRecord) return e.json(404, { error: 'Store not found' })
 
       if (body.store_name) storeRecord.set('name', body.store_name)
       if (body.api_version) storeRecord.set('api_version', body.api_version)
-
       $app.save(storeRecord)
 
-      $app.__shopifyLogAction(
-        storeRecord.id,
-        userId,
-        'update_settings',
-        'store',
-        storeRecord.id,
-        'EXECUTED',
-        'Configurações da loja atualizadas',
-      )
+      try {
+        var logCol = $app.findCollectionByNameOrId('action_logs')
+        var logRec = new Record(logCol)
+        logRec.set('store', storeRecord.id)
+        logRec.set('user', userId)
+        logRec.set('action_type', 'update_settings')
+        logRec.set('entity_type', 'store')
+        logRec.set('entity_id', storeRecord.id)
+        logRec.set('status', 'EXECUTED')
+        logRec.set('summary', 'Store settings updated')
+        $app.save(logRec)
+      } catch (_) {}
 
       return e.json(200, { success: true })
     } catch (err) {
-      return e.internalServerError('Erro ao salvar: ' + String(err))
+      return e.internalServerError('Error saving: ' + String(err))
     }
   },
   $apis.requireAuth(),

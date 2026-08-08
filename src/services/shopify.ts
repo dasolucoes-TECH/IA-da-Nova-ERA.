@@ -37,3 +37,11 @@ export const syncOrders = (): Promise<SyncResult> =>
 
 export const publishProduct = (id: string): Promise<PublishResult> =>
   pb.send(`/backend/v1/shopify/publish/${id}`, { method: 'POST' })
+
+export interface DiagnosticsResult {
+  steps: Array<Record<string, unknown>>
+  summary: string
+}
+
+export const runDiagnostics = (): Promise<DiagnosticsResult> =>
+  pb.send('/backend/v1/shopify/diagnostics', { method: 'POST' })

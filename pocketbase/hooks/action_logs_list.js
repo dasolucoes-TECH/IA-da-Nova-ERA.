@@ -4,9 +4,14 @@ routerAdd(
   (e) => {
     try {
       var userId = e.auth ? e.auth.id : ''
-      if (!userId) return e.unauthorizedError('Autenticação necessária')
+      if (!userId) return e.unauthorizedError('Auth required')
 
-      var storeRecord = $app.__shopifyGetStore()
+      var storeRecord = null
+      try {
+        var stores = $app.findRecordsByFilter('stores', "id != ''", 'created', 1, 0)
+        if (stores.length > 0) storeRecord = stores[0]
+      } catch (_) {}
+
       if (!storeRecord) return e.json(200, { items: [] })
 
       var limit = parseInt((e.requestInfo().query && e.requestInfo().query.limit) || '20', 10) || 20
@@ -34,7 +39,7 @@ routerAdd(
 
       return e.json(200, { items: items })
     } catch (err) {
-      return e.internalServerError('Erro: ' + String(err))
+      return e.internalServerError('Error: ' + String(err))
     }
   },
   $apis.requireAuth(),
