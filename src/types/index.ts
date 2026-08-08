@@ -240,6 +240,84 @@ export interface ProductAIContent {
   email_marketing: string
 }
 
+export interface AutomationRule {
+  id: string
+  name: string
+  description?: string
+  enabled: boolean
+  trigger_type: string
+  trigger_config?: string
+  conditions?: string
+  action_type: string
+  action_config?: string
+  autonomy_mode: 'SUGGEST' | 'APPROVAL' | 'AUTOPILOT'
+  priority?: number
+  cooldown_minutes?: number
+  max_executions_per_day?: number
+  last_executed_at?: string
+  execution_count?: number
+  created?: string
+}
+
+export interface AutomationApproval {
+  id: string
+  title: string
+  description?: string
+  entity_type?: string
+  entity_id?: string
+  proposed_action?: Record<string, unknown>
+  risk_level: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'EXPIRED' | 'CANCELLED'
+  expires_at?: string
+  approved_at?: string
+  rejected_at?: string
+  created: string
+  rule?: string
+  job?: string
+}
+
+export interface AutomationNotification {
+  id: string
+  type: string
+  title: string
+  message: string
+  severity: 'INFO' | 'SUCCESS' | 'WARNING' | 'ERROR' | 'CRITICAL'
+  entity_type?: string
+  entity_id?: string
+  read: boolean
+  created: string
+}
+
+export interface ActivityLog {
+  id: string
+  action_type: string
+  entity_type?: string
+  entity_id?: string
+  status: string
+  summary?: string
+  execution_source?: string
+  estimated_minutes_saved?: number
+  automation?: boolean
+  rule?: string
+  created: string
+}
+
+export interface AutopilotSummary {
+  activeRules: number
+  executionsToday: number
+  pendingApprovals: number
+  failedToday: number
+  estimatedMinutesSaved: number
+  lastExecution?: {
+    id: string
+    status: string
+    jobType: string
+    completedAt: string
+    createdAt: string
+  } | null
+  autopilotEnabled: boolean
+}
+
 export interface StoreSettings {
   store_name: string
   brand_name: string

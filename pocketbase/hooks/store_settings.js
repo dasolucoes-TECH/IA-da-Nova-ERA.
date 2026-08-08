@@ -23,6 +23,7 @@ routerAdd(
         connected: storeRecord.getBool('connected'),
         last_product_sync: storeRecord.getString('last_product_sync') || '',
         last_order_sync: storeRecord.getString('last_order_sync') || '',
+        autopilot_enabled: storeRecord.getBool('autopilot_enabled'),
       })
     } catch (err) {
       return e.internalServerError('Error: ' + String(err))
@@ -50,6 +51,8 @@ routerAdd(
 
       if (body.store_name) storeRecord.set('name', body.store_name)
       if (body.api_version) storeRecord.set('api_version', body.api_version)
+      if (body.autopilot_enabled !== undefined)
+        storeRecord.set('autopilot_enabled', body.autopilot_enabled)
       $app.save(storeRecord)
 
       try {

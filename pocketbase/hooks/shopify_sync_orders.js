@@ -311,6 +311,37 @@ routerAdd(
         errors,
       )
 
+      try {
+        var dedupKeySync =
+          'sync:ORDER_SYNC_COMPLETED:' + storesId + ':' + new Date().toISOString().substring(0, 13)
+        var existingSyncEvent = null
+        try {
+          existingSyncEvent = $app.findFirstRecordByFilter(
+            'automation_events',
+            'deduplication_key = {:dk}',
+            { dk: dedupKeySync },
+          )
+        } catch (_) {}
+        if (!existingSyncEvent) {
+          var syncEventsCol = $app.findCollectionByNameOrId('automation_events')
+          var syncEventRec = new Record(syncEventsCol)
+          syncEventRec.set('store', storesId)
+          syncEventRec.set('event_type', 'ORDER_SYNC_COMPLETED')
+          syncEventRec.set('source', 'sync')
+          syncEventRec.set('entity_type', 'sync')
+          syncEventRec.set('entity_id', storesId)
+          syncEventRec.set(
+            'payload',
+            JSON.stringify({ created: created, updated: updated, total: total }),
+          )
+          syncEventRec.set('deduplication_key', dedupKeySync)
+          syncEventRec.set('status', 'PROCESSED')
+          syncEventRec.set('received_at', new Date().toISOString())
+          syncEventRec.set('processed_at', new Date().toISOString())
+          $app.save(syncEventRec)
+        }
+      } catch (_) {}
+
       return e.json(200, {
         created: created,
         updated: updated,

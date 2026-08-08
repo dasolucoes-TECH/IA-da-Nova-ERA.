@@ -1,0 +1,37 @@
+routerAdd(
+  'POST',
+  '/backend/v1/autopilot/rules/{id}/toggle',
+  (e) => {
+    try {
+      var userId = e.auth ? e.auth.id : ''
+      if (!userId) return e.unauthorizedError('Autenticação necessária')
+
+      var storeRecord = null
+      var memberRole = ''
+      try {
+        var members = $app.findRecordsByFilter('store_members', 'user = {:uid}', '-created', 1, 0, {
+          uid: userId,
+        })
+        if (members.length > 0) {
+          memberRole = members[0].getString('role')
+          storeRecord = $app.findRecordById('stores', members[0].getString('store'))
+        }
+      } catch (_) {}
+      if (!storeRecord) return e.json(403, { error: 'Nenhuma loja associada' })
+      if (memberRole === 'VIEWER') return e.json(403, { error: 'VIEWER não pode alterar regras' })
+
+      var ruleId = e.request.pathValue('id')
+      var rule = $app.findRecordById('automation_rules', ruleId)
+      if (rule.getString('store') !== storeRecord.id)
+        return e.json(403, { error: 'Regra não pertence à loja' })
+
+      rule.set('enabled', !rule.getBool('enabled'))
+      $app.save(rule)
+
+      return e.json(200, { id: rule.id, enabled: rule.getBool('enabled') })
+    } catch (err) {
+      return e.internalServerError('Erro: ' + String(err))
+    }
+  },
+  $apis.requireAuth(),
+)

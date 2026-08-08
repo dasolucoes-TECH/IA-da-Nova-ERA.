@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-08T01:17:34.605Z",
+  "generatedAt": "2026-08-08T03:47:58.631Z",
   "collections": [
     {
       "name": "users",
@@ -861,6 +861,12 @@
           "required": false,
           "system": false,
           "collectionRef": "store_members"
+        },
+        {
+          "name": "autopilot_enabled",
+          "type": "bool",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [
@@ -997,6 +1003,43 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "execution_source",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["USER", "AUTOMATION", "AI", "SHOPIFY_WEBHOOK", "SYSTEM"]
+        },
+        {
+          "name": "estimated_minutes_saved",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "rule",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "event",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "job",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "automation",
+          "type": "bool",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [
@@ -1286,6 +1329,591 @@
       "indexes": [
         "CREATE UNIQUE INDEX idx_product_media_store_shopify_id ON product_media (store, shopify_media_id) WHERE shopify_media_id != ''",
         "CREATE INDEX idx_product_media_product ON product_media (product)"
+      ]
+    },
+    {
+      "name": "automation_rules",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "store",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "stores"
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "enabled",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "trigger_type",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "trigger_config",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "conditions",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "action_type",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "action_config",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "autonomy_mode",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["SUGGEST", "APPROVAL", "AUTOPILOT"]
+        },
+        {
+          "name": "priority",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "cooldown_minutes",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "max_executions_per_day",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "last_executed_at",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "execution_count",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created_by",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_automation_rules_store ON automation_rules (store)",
+        "CREATE INDEX idx_automation_rules_enabled ON automation_rules (enabled)",
+        "CREATE INDEX idx_automation_rules_trigger ON automation_rules (trigger_type)"
+      ]
+    },
+    {
+      "name": "automation_events",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "store",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "stores"
+        },
+        {
+          "name": "event_type",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "source",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "entity_type",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "entity_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "payload",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "deduplication_key",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["PENDING", "PROCESSING", "PROCESSED", "FAILED", "IGNORED"]
+        },
+        {
+          "name": "received_at",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "processed_at",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "error",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_automation_events_dedup ON automation_events (deduplication_key) WHERE deduplication_key != ''",
+        "CREATE INDEX idx_automation_events_status ON automation_events (status)",
+        "CREATE INDEX idx_automation_events_store ON automation_events (store)",
+        "CREATE INDEX idx_automation_events_type ON automation_events (event_type)"
+      ]
+    },
+    {
+      "name": "automation_jobs",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "store",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "stores"
+        },
+        {
+          "name": "rule",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "automation_rules"
+        },
+        {
+          "name": "event",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "automation_events"
+        },
+        {
+          "name": "job_type",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": [
+            "QUEUED",
+            "RUNNING",
+            "WAITING_APPROVAL",
+            "COMPLETED",
+            "FAILED",
+            "CANCELLED",
+            "RETRYING"
+          ]
+        },
+        {
+          "name": "priority",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "payload",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "attempts",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "max_attempts",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "scheduled_for",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "started_at",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "completed_at",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "error",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "result",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_automation_jobs_status ON automation_jobs (status)",
+        "CREATE INDEX idx_automation_jobs_scheduled ON automation_jobs (scheduled_for)",
+        "CREATE INDEX idx_automation_jobs_store ON automation_jobs (store)",
+        "CREATE INDEX idx_automation_jobs_rule ON automation_jobs (rule)"
+      ]
+    },
+    {
+      "name": "automation_approvals",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "store",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "stores"
+        },
+        {
+          "name": "rule",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "automation_rules"
+        },
+        {
+          "name": "job",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "automation_jobs"
+        },
+        {
+          "name": "action_log",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "action_logs"
+        },
+        {
+          "name": "requested_by",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "approved_by",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "title",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "entity_type",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "entity_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "proposed_action",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "risk_level",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["PENDING", "APPROVED", "REJECTED", "EXPIRED", "CANCELLED"]
+        },
+        {
+          "name": "expires_at",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "approved_at",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "rejected_at",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_automation_approvals_status ON automation_approvals (status)",
+        "CREATE INDEX idx_automation_approvals_store ON automation_approvals (store)"
+      ]
+    },
+    {
+      "name": "automation_notifications",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "store",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "stores"
+        },
+        {
+          "name": "user",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "type",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "title",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "message",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "severity",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["INFO", "SUCCESS", "WARNING", "ERROR", "CRITICAL"]
+        },
+        {
+          "name": "entity_type",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "entity_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "read",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_automation_notifications_user ON automation_notifications (user)",
+        "CREATE INDEX idx_automation_notifications_read ON automation_notifications (read)",
+        "CREATE INDEX idx_automation_notifications_store ON automation_notifications (store)"
       ]
     }
   ]
