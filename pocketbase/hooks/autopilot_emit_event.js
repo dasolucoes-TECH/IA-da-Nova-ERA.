@@ -4,28 +4,42 @@ routerAdd(
   (e) => {
     try {
       var userId = e.auth ? e.auth.id : ''
-      if (!userId) return e.unauthorizedError('Autenticação necessária')
+      if (!userId) return e.unauthorizedError('Autenticacao necessaria')
 
       var storeRecord = null
       try {
         var members = $app.findRecordsByFilter('store_members', 'user = {:uid}', '-created', 1, 0, {
           uid: userId,
         })
-        if (members.length > 0) {
+        if (members.length > 0)
           storeRecord = $app.findRecordById('stores', members[0].getString('store'))
-        }
       } catch (_) {}
       if (!storeRecord) return e.json(403, { error: 'Nenhuma loja associada' })
 
       var body = e.requestInfo().body || {}
       var eventType = (body.eventType || '').trim()
-      if (!eventType) return e.badRequestError('eventType é obrigatório')
+      if (!eventType) return e.badRequestError('eventType e obrigatorio')
 
-      var dedupKey =
-        body.deduplicationKey ||
-        (body.source || 'api') + ':' + eventType + ':' + (body.entityId || '')
+      var dedupKey = body.deduplicationKey
+      if (!dedupKey) {
+        if (eventType === 'USER_ACTION_REQUESTED') {
+          dedupKey = 'manual:' + $security.randomString(16)
+        } else {
+          dedupKey =
+            'manual:' +
+            (body.source || 'api') +
+            ':' +
+            eventType +
+            ':' +
+            (body.entityId || '') +
+            ':' +
+            new Date().toISOString().substring(0, 13)
+        }
+      }
+
       var now = new Date().toISOString()
 
+      // Dedup check - do NOT modify original event
       try {
         var existing = $app.findFirstRecordByFilter(
           'automation_events',
@@ -33,13 +47,11 @@ routerAdd(
           { dk: dedupKey },
         )
         if (existing) {
-          existing.set('status', 'IGNORED')
-          $app.save(existing)
-          $app.logger().info('automation_event_deduplicated', 'dedupKey', dedupKey)
-          return e.json(200, { status: 'duplicated', eventId: existing.id })
+          return e.json(200, { status: 'duplicate', eventId: existing.id, jobsCreated: 0 })
         }
       } catch (_) {}
 
+      // Create event PENDING
       var eventsCol = $app.findCollectionByNameOrId('automation_events')
       var eventRec = new Record(eventsCol)
       eventRec.set('store', storeRecord.id)
@@ -49,11 +61,11 @@ routerAdd(
       eventRec.set('entity_id', body.entityId || '')
       eventRec.set('payload', JSON.stringify(body.payload || {}))
       eventRec.set('deduplication_key', dedupKey)
-      eventRec.set('status', 'PENDING')
+      eventRec.set('status', 'PROCESSING')
       eventRec.set('received_at', now)
       $app.save(eventRec)
-      $app.logger().info('automation_event_created', 'eventType', eventType, 'eventId', eventRec.id)
 
+      // Find matching rules
       var rules = []
       try {
         rules = $app.findRecordsByFilter(
@@ -65,8 +77,6 @@ routerAdd(
           { sid: storeRecord.id, tt: eventType },
         )
       } catch (_) {}
-
-      var jobsCreated = 0
 
       function getNestedValue(obj, path) {
         var parts = path.split('.')
@@ -129,6 +139,8 @@ routerAdd(
       }
 
       var jobsCol = $app.findCollectionByNameOrId('automation_jobs')
+      var jobsCreated = 0
+      var payload = body.payload || {}
 
       for (var r = 0; r < rules.length; r++) {
         var rule = rules[r]
@@ -138,56 +150,89 @@ routerAdd(
           conditions = JSON.parse(conditionsStr)
         } catch (_) {}
 
-        var payload = body.payload || {}
         if (!evaluateConditions(conditions, payload)) continue
 
-        var lastExec = rule.getString('last_executed_at')
+        // Per-entity cooldown: check last job for this rule + entity
         var cooldownMin = rule.getNumber('cooldown_minutes') || 0
-        if (lastExec && cooldownMin > 0) {
-          var lastDate = new Date(lastExec)
-          var cooldownEnd = new Date(lastDate.getTime() + cooldownMin * 60000)
-          if (now && new Date(now) < cooldownEnd) {
-            $app.logger().info('automation_rule_cooldown_skip', 'ruleId', rule.id)
-            continue
+        if (cooldownMin > 0) {
+          var entityType = body.entityType || ''
+          var entityId = body.entityId || ''
+          if (entityId) {
+            try {
+              var lastJobs = $app.findRecordsByFilter(
+                'automation_jobs',
+                'rule = {:rid} && (status = {:s1} || status = {:s2})',
+                '-created',
+                1,
+                0,
+                { rid: rule.id, s1: 'COMPLETED', s2: 'WAITING_APPROVAL' },
+              )
+              for (var lj = 0; lj < lastJobs.length; lj++) {
+                var ljEvent = $app.findRecordById(
+                  'automation_events',
+                  lastJobs[lj].getString('event'),
+                )
+                if (
+                  ljEvent.getString('entity_type') === entityType &&
+                  ljEvent.getString('entity_id') === entityId
+                ) {
+                  var lastDate = new Date(lastJobs[lj].getString('created'))
+                  if (new Date(lastDate.getTime() + cooldownMin * 60000) > new Date(now)) {
+                    continue
+                  }
+                  break
+                }
+              }
+            } catch (_) {}
           }
         }
 
+        // Daily limit: count COMPLETED + WAITING_APPROVAL jobs today
         var maxPerDay = rule.getNumber('max_executions_per_day') || 0
         if (maxPerDay > 0) {
-          var execCount = rule.getNumber('execution_count') || 0
           var todayStart = new Date()
           todayStart.setHours(0, 0, 0, 0)
-          var todayJobs = $app.findRecordsByFilter(
-            'automation_jobs',
-            'rule = {:rid} && created >= {:ts}',
-            '-created',
-            100,
-            0,
-            { rid: rule.id, ts: todayStart.toISOString() },
-          )
-          if (todayJobs.length >= maxPerDay) {
-            var notifCol = $app.findCollectionByNameOrId('automation_notifications')
-            var notifRec = new Record(notifCol)
-            notifRec.set('store', storeRecord.id)
-            notifRec.set('user', userId)
-            notifRec.set('type', 'automation_limit')
-            notifRec.set('title', 'Automação pausada: limite diário atingido')
-            notifRec.set(
-              'message',
-              'A automação "' +
-                rule.getString('name') +
-                '" atingiu o limite de ' +
-                maxPerDay +
-                ' execuções por dia.',
+          try {
+            var todayJobs = $app.findRecordsByFilter(
+              'automation_jobs',
+              'rule = {:rid} && created >= {:ts} && (status = {:s1} || status = {:s2})',
+              '-created',
+              200,
+              0,
+              {
+                rid: rule.id,
+                ts: todayStart.toISOString(),
+                s1: 'COMPLETED',
+                s2: 'WAITING_APPROVAL',
+              },
             )
-            notifRec.set('severity', 'WARNING')
-            notifRec.set('read', false)
-            $app.save(notifRec)
-            continue
-          }
+            if (todayJobs.length >= maxPerDay) {
+              var nCol = $app.findCollectionByNameOrId('automation_notifications')
+              var nRec = new Record(nCol)
+              nRec.set('store', storeRecord.id)
+              nRec.set('user', userId)
+              nRec.set('type', 'automation_limit')
+              nRec.set('title', 'Limite diario atingido')
+              nRec.set(
+                'message',
+                'A automacao "' +
+                  rule.getString('name') +
+                  '" atingiu o limite de ' +
+                  maxPerDay +
+                  ' execucoes por dia.',
+              )
+              nRec.set('severity', 'WARNING')
+              nRec.set('read', false)
+              $app.save(nRec)
+              continue
+            }
+          } catch (_) {}
         }
 
+        // Idempotency check
         var idempotencyKey =
+          storeRecord.id +
+          ':' +
           rule.id +
           ':' +
           eventRec.id +
@@ -195,15 +240,24 @@ routerAdd(
           (body.entityId || '') +
           ':' +
           rule.getString('action_type')
-        var existingJob = null
         try {
-          existingJob = $app.findFirstRecordByFilter(
+          var existingJob = $app.findFirstRecordByFilter(
+            'automation_jobs',
+            'idempotency_key = {:ik} && status = {:st}',
+            { ik: idempotencyKey, st: 'COMPLETED' },
+          )
+          if (existingJob) continue
+        } catch (_) {}
+
+        // Check for existing job for same rule + event
+        try {
+          var dupJob = $app.findFirstRecordByFilter(
             'automation_jobs',
             'rule = {:rid} && event = {:eid}',
             { rid: rule.id, eid: eventRec.id },
           )
+          if (dupJob) continue
         } catch (_) {}
-        if (existingJob) continue
 
         var jobRec = new Record(jobsCol)
         jobRec.set('store', storeRecord.id)
@@ -216,19 +270,9 @@ routerAdd(
         jobRec.set('attempts', 0)
         jobRec.set('max_attempts', 3)
         jobRec.set('scheduled_for', now)
+        jobRec.set('idempotency_key', idempotencyKey)
         $app.save(jobRec)
         jobsCreated++
-        $app
-          .logger()
-          .info(
-            'automation_job_created',
-            'ruleId',
-            rule.id,
-            'jobId',
-            jobRec.id,
-            'actionType',
-            rule.getString('action_type'),
-          )
       }
 
       eventRec.set('status', 'PROCESSED')
