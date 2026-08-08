@@ -62,7 +62,7 @@ export default function Autopilot() {
               loadData()
             }}
           >
-            <Zap className="w-3.5 h-3.5 mr-1" /> Processar Jobs
+            <Zap className="w-3.5 h-3.5 mr-1" /> Executar fila agora
           </Button>
         </div>
       </div>

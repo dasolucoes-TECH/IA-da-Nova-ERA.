@@ -25,6 +25,19 @@ routerAdd(
       if (rule.getString('store') !== storeRecord.id)
         return e.json(403, { error: 'Regra não pertence à loja' })
 
+      var actionType = rule.getString('action_type')
+      var IMPLEMENTED_ACTIONS = [
+        'GENERATE_PRODUCT_SEO',
+        'GENERATE_INSTAGRAM_CONTENT',
+        'CREATE_NOTIFICATION',
+        'ANALYZE_LOW_STOCK',
+        'ANALYZE_PRODUCT_PERFORMANCE',
+        'GENERATE_PRODUCT_CONTENT',
+      ]
+      if (!rule.getBool('enabled') && IMPLEMENTED_ACTIONS.indexOf(actionType) === -1) {
+        return e.badRequestError('Esta ação ainda não está implementada e não pode ser ativada.')
+      }
+
       rule.set('enabled', !rule.getBool('enabled'))
       $app.save(rule)
 

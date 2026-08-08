@@ -18,6 +18,10 @@ import BannersPage from './pages/BannersPage'
 import IaPage from './pages/IaPage'
 import Configuracoes from './pages/Configuracoes'
 import IntegrationsPage from './pages/IntegrationsPage'
+import Autopilot from './pages/Autopilot'
+import AutopilotRules from './pages/AutopilotRules'
+import AutopilotApprovals from './pages/AutopilotApprovals'
+import AutopilotActivity from './pages/AutopilotActivity'
 import NotFound from './pages/NotFound'
 
 const App = () => (
@@ -46,6 +50,10 @@ const App = () => (
             <Route path="/ia" element={<IaPage />} />
             <Route path="/integracoes" element={<IntegrationsPage />} />
             <Route path="/configuracoes" element={<Configuracoes />} />
+            <Route path="/autopilot" element={<Autopilot />} />
+            <Route path="/autopilot/rules" element={<AutopilotRules />} />
+            <Route path="/autopilot/approvals" element={<AutopilotApprovals />} />
+            <Route path="/autopilot/activity" element={<AutopilotActivity />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>

@@ -40,6 +40,18 @@ routerAdd(
         return e.badRequestError('Por segurança, esta ação não pode usar AUTOPILOT. Use APPROVAL.')
       }
 
+      var IMPLEMENTED_ACTIONS = [
+        'GENERATE_PRODUCT_SEO',
+        'GENERATE_INSTAGRAM_CONTENT',
+        'CREATE_NOTIFICATION',
+        'ANALYZE_LOW_STOCK',
+        'ANALYZE_PRODUCT_PERFORMANCE',
+        'GENERATE_PRODUCT_CONTENT',
+      ]
+      if (IMPLEMENTED_ACTIONS.indexOf(body.action_type) === -1) {
+        return e.badRequestError('Esta ação ainda não está implementada e não pode ser utilizada.')
+      }
+
       var rulesCol = $app.findCollectionByNameOrId('automation_rules')
       var rec = new Record(rulesCol)
       rec.set('store', storeRecord.id)

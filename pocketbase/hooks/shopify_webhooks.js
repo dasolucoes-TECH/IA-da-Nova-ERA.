@@ -9,7 +9,6 @@ routerAdd('POST', '/backend/v1/shopify/webhook', (e) => {
 
     var hmacHeader = e.request.header.get('X-Shopify-Hmac-Sha256') || ''
     var clientSecret = $secrets.get('SHOPIFY_CLIENT_SECRET') || ''
-
     if (!clientSecret) return e.json(401, { error: 'Webhook secret not configured' })
 
     function base64ToHex(b64) {
@@ -60,12 +59,10 @@ routerAdd('POST', '/backend/v1/shopify/webhook', (e) => {
     }
 
     var normalizedDomain = normalizeDomain(shopDomain)
-
     $app
       .logger()
       .info('Shopify webhook received', 'topic', topic, 'id', body.id || '', 'webhookId', webhookId)
 
-    // Tenant resolution by domain
     var storeRecord = null
     try {
       var stores = $app.findRecordsByFilter('stores', 'myshopify_domain = {:md}', 'created', 1, 0, {
@@ -101,7 +98,7 @@ routerAdd('POST', '/backend/v1/shopify/webhook', (e) => {
             'shopify_id = {:sid} && store = {:st}',
             { sid: shopifyId, st: storeId },
           )
-          return { localId: product.id, name: product.getString('name'), record: product }
+          return { localId: product.id, name: product.getString('name') }
         } catch (_) {}
       } else if (type === 'inventory') {
         try {
@@ -113,13 +110,7 @@ routerAdd('POST', '/backend/v1/shopify/webhook', (e) => {
           if (variant) {
             var productId = variant.getString('product')
             var product = $app.findRecordById('products', productId)
-            return {
-              localId: product.id,
-              name: product.getString('name'),
-              variantId: variant.id,
-              sku: variant.getString('sku'),
-              shopifyVariantId: variant.getString('shopify_variant_id'),
-            }
+            return { localId: product.id, name: product.getString('name') }
           }
         } catch (_) {}
       }
@@ -172,19 +163,12 @@ routerAdd('POST', '/backend/v1/shopify/webhook', (e) => {
       var quantity = body.available != null ? body.available : 0
       payload = {
         inventory: { item_id: invItemId, quantity: quantity },
-        product: { local_id: invResolved.localId, shopify_id: null, name: invResolved.name },
-        variant: {
-          local_id: invResolved.variantId,
-          shopify_variant_id: invResolved.shopifyVariantId,
-          sku: invResolved.sku,
-        },
+        product: { local_id: invResolved.localId, name: invResolved.name },
       }
     }
 
     if (!eventType) return e.json(200, { received: true })
 
-    // Build dedup key: X-Shopify-Webhook-Id > X-Shopify-Event-Id > domain+topic+entity+updatedAt
-    var updatedAt = body.updated_at || new Date().toISOString()
     var dedupKey = ''
     if (webhookId) {
       dedupKey = 'shopify:' + storeId + ':' + webhookId
@@ -201,200 +185,32 @@ routerAdd('POST', '/backend/v1/shopify/webhook', (e) => {
         ':' +
         entityId +
         ':' +
-        updatedAt
+        (body.updated_at || new Date().toISOString())
     }
 
-    // Dedup: check if event exists, do NOT modify original
+    var baseUrl = $secrets.get('PB_INSTANCE_URL') || ''
+    var internalSecret = $secrets.get('PB_SUPERUSER_TOKEN') || ''
     try {
-      var existingEvent = $app.findFirstRecordByFilter(
-        'automation_events',
-        'deduplication_key = {:dk}',
-        { dk: dedupKey },
-      )
-      if (existingEvent) {
-        return e.json(200, { received: true, status: 'duplicate' })
-      }
-    } catch (_) {}
-
-    // Create event PROCESSING
-    var eventsCol = $app.findCollectionByNameOrId('automation_events')
-    var eventRec = new Record(eventsCol)
-    eventRec.set('store', storeId)
-    eventRec.set('event_type', eventType)
-    eventRec.set('source', 'shopify_webhook')
-    eventRec.set('entity_type', entityType)
-    eventRec.set('entity_id', entityId)
-    eventRec.set('payload', JSON.stringify(payload))
-    eventRec.set('deduplication_key', dedupKey)
-    eventRec.set('status', 'PROCESSING')
-    eventRec.set('received_at', new Date().toISOString())
-    $app.save(eventRec)
-
-    // Rule Engine: find matching rules
-    var rules = []
-    try {
-      rules = $app.findRecordsByFilter(
-        'automation_rules',
-        'store = {:sid} && enabled = true && trigger_type = {:tt}',
-        '-priority',
-        50,
-        0,
-        { sid: storeId, tt: eventType },
-      )
-    } catch (_) {}
-
-    function getNestedValue(obj, path) {
-      var parts = path.split('.')
-      var current = obj
-      for (var i = 0; i < parts.length; i++) {
-        if (current === null || current === undefined) return undefined
-        current = current[parts[i]]
-      }
-      return current
+      $http.send({
+        url: baseUrl + '/backend/v1/autopilot/emit-event-core',
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Internal-Secret': internalSecret },
+        body: JSON.stringify({
+          storeId: storeId,
+          eventType: eventType,
+          source: 'shopify_webhook',
+          entityType: entityType,
+          entityId: entityId,
+          payload: payload,
+          deduplicationKey: dedupKey,
+        }),
+        timeout: 30,
+      })
+    } catch (sendErr) {
+      $app.logger().error('webhook_core_call_error', 'error', String(sendErr))
     }
 
-    function evaluateCondition(cond, p) {
-      if (!cond || !cond.field) return true
-      var val = getNestedValue(p, cond.field)
-      switch (cond.operator) {
-        case 'equals':
-          return val === cond.value
-        case 'not_equals':
-          return val !== cond.value
-        case 'greater_than':
-          return Number(val) > Number(cond.value)
-        case 'greater_or_equal':
-          return Number(val) >= Number(cond.value)
-        case 'less_than':
-          return Number(val) < Number(cond.value)
-        case 'less_or_equal':
-          return Number(val) <= Number(cond.value)
-        case 'contains':
-          return String(val || '').indexOf(String(cond.value)) !== -1
-        case 'not_contains':
-          return String(val || '').indexOf(String(cond.value)) === -1
-        case 'is_empty':
-          return !val || val === '' || val === null || val === undefined
-        case 'is_not_empty':
-          return !!val && val !== ''
-        case 'in':
-          return Array.isArray(cond.value) && cond.value.indexOf(val) !== -1
-        case 'not_in':
-          return Array.isArray(cond.value) && cond.value.indexOf(val) === -1
-        default:
-          return false
-      }
-    }
-
-    function evaluateConditions(conditions, p) {
-      if (!conditions) return true
-      if (conditions.all) {
-        for (var i = 0; i < conditions.all.length; i++) {
-          if (!evaluateCondition(conditions.all[i], p)) return false
-        }
-        return true
-      }
-      if (conditions.any) {
-        for (var j = 0; j < conditions.any.length; j++) {
-          if (evaluateCondition(conditions.any[j], p)) return true
-        }
-        return false
-      }
-      return evaluateCondition(conditions, p)
-    }
-
-    var jobsCol = $app.findCollectionByNameOrId('automation_jobs')
-    var jobsCreated = 0
-
-    for (var ri = 0; ri < rules.length; ri++) {
-      var rule = rules[ri]
-      var conditionsStr = rule.getString('conditions')
-      var conditions = null
-      try {
-        conditions = JSON.parse(conditionsStr)
-      } catch (_) {}
-
-      if (!evaluateConditions(conditions, payload)) continue
-
-      // Per-entity cooldown
-      var cooldownMin = rule.getNumber('cooldown_minutes') || 0
-      if (cooldownMin > 0 && entityId) {
-        try {
-          var lastJobs = $app.findRecordsByFilter(
-            'automation_jobs',
-            'rule = {:rid} && (status = {:s1} || status = {:s2})',
-            '-created',
-            10,
-            0,
-            { rid: rule.id, s1: 'COMPLETED', s2: 'WAITING_APPROVAL' },
-          )
-          for (var lj = 0; lj < lastJobs.length; lj++) {
-            var ljEvent = $app.findRecordById('automation_events', lastJobs[lj].getString('event'))
-            if (
-              ljEvent.getString('entity_type') === entityType &&
-              ljEvent.getString('entity_id') === entityId
-            ) {
-              var lastDate = new Date(lastJobs[lj].getString('created'))
-              if (new Date(lastDate.getTime() + cooldownMin * 60000) > new Date()) {
-                break
-              }
-              break
-            }
-          }
-        } catch (_) {}
-      }
-
-      // Idempotency check
-      var idempotencyKey =
-        storeId +
-        ':' +
-        rule.id +
-        ':' +
-        eventRec.id +
-        ':' +
-        (entityId || '') +
-        ':' +
-        rule.getString('action_type')
-      try {
-        var existingJob = $app.findFirstRecordByFilter(
-          'automation_jobs',
-          'idempotency_key = {:ik} && status = {:st}',
-          { ik: idempotencyKey, st: 'COMPLETED' },
-        )
-        if (existingJob) continue
-      } catch (_) {}
-
-      // Check duplicate job
-      try {
-        var dupJob = $app.findFirstRecordByFilter(
-          'automation_jobs',
-          'rule = {:rid} && event = {:eid}',
-          { rid: rule.id, eid: eventRec.id },
-        )
-        if (dupJob) continue
-      } catch (_) {}
-
-      var jobRec = new Record(jobsCol)
-      jobRec.set('store', storeId)
-      jobRec.set('rule', rule.id)
-      jobRec.set('event', eventRec.id)
-      jobRec.set('job_type', rule.getString('action_type'))
-      jobRec.set('status', 'QUEUED')
-      jobRec.set('priority', rule.getNumber('priority') || 5)
-      jobRec.set('payload', JSON.stringify(payload))
-      jobRec.set('attempts', 0)
-      jobRec.set('max_attempts', 3)
-      jobRec.set('scheduled_for', new Date().toISOString())
-      jobRec.set('idempotency_key', idempotencyKey)
-      $app.save(jobRec)
-      jobsCreated++
-    }
-
-    eventRec.set('status', 'PROCESSED')
-    eventRec.set('processed_at', new Date().toISOString())
-    $app.save(eventRec)
-
-    return e.json(200, { received: true, jobsCreated: jobsCreated })
+    return e.json(200, { received: true })
   } catch (err) {
     $app.logger().error('Shopify webhook error', 'error', String(err))
     return e.json(500, { error: 'Internal error' })

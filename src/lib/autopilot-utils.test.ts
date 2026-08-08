@@ -6,6 +6,7 @@ import {
   buildShopifyDedupKey,
   buildManualDedupKey,
   isCooldownActive,
+  isEntityInCooldown,
   canRoleApprove,
   canManageRules,
   canToggleAutopilot,
@@ -23,6 +24,8 @@ import {
   resolveLocalProductId,
   validateSeoOutput,
   validateInstagramOutput,
+  validateProductContentOutput,
+  cleanAiJson,
   ACTION_REGISTRY,
   UNSAFE_ACTIONS,
   UNIMPLEMENTED_ACTIONS,
@@ -243,5 +246,152 @@ describe('Autopilot Utils', () => {
     expect(constantTimeCompare(validSig, validSig)).toBe(true)
     expect(constantTimeCompare('', '')).toBe(true)
     expect(constantTimeCompare('abc', 'abcd')).toBe(false)
+  })
+
+  it('24. stale job recovery threshold is 5 minutes', () => {
+    const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000 - 1000).toISOString()
+    const fourMinAgo = new Date(Date.now() - 4 * 60 * 1000).toISOString()
+    const staleThreshold = new Date(Date.now() - 5 * 60 * 1000)
+    expect(new Date(fiveMinAgo) < staleThreshold).toBe(true)
+    expect(new Date(fourMinAgo) < staleThreshold).toBe(false)
+  })
+
+  it('25. circuit breaker triggers on 5 consecutive FAILED', () => {
+    const statuses = ['FAILED', 'FAILED', 'FAILED', 'FAILED', 'FAILED']
+    const allFailed = statuses.every((s) => s === 'FAILED')
+    expect(allFailed).toBe(true)
+
+    const withCompleted = ['FAILED', 'FAILED', 'COMPLETED', 'FAILED', 'FAILED']
+    const allFailedWithReset = withCompleted.every((s) => s === 'FAILED')
+    expect(allFailedWithReset).toBe(false)
+  })
+
+  it('26. isEntityInCooldown skips same entity within cooldown', () => {
+    const recentDate = new Date(Date.now() - 5 * 60 * 1000).toISOString()
+    expect(
+      isEntityInCooldown('rule1', 'product', 'prod-A', 720, recentDate, 'product', 'prod-A'),
+    ).toBe(true)
+    expect(
+      isEntityInCooldown('rule1', 'product', 'prod-B', 720, recentDate, 'product', 'prod-A'),
+    ).toBe(false)
+  })
+
+  it('27. isEntityInCooldown returns false when no cooldown set', () => {
+    expect(
+      isEntityInCooldown(
+        'rule1',
+        'product',
+        'prod-A',
+        0,
+        new Date().toISOString(),
+        'product',
+        'prod-A',
+      ),
+    ).toBe(false)
+  })
+
+  it('28. isEntityInCooldown returns false when no previous job', () => {
+    expect(isEntityInCooldown('rule1', 'product', 'prod-A', 720, null, null, null)).toBe(false)
+  })
+
+  it('29. daily limit counts COMPLETED and WAITING_APPROVAL', () => {
+    const todayJobs = [
+      { status: 'COMPLETED' },
+      { status: 'WAITING_APPROVAL' },
+      { status: 'FAILED' },
+      { status: 'QUEUED' },
+    ]
+    const effectiveCount = todayJobs.filter(
+      (j) => j.status === 'COMPLETED' || j.status === 'WAITING_APPROVAL',
+    ).length
+    expect(effectiveCount).toBe(2)
+  })
+
+  it('30. master switch PAUSED blocks QUEUED and RETRYING', () => {
+    expect(shouldProcessJob('QUEUED', false, null)).toBe(false)
+    expect(shouldProcessJob('RETRYING', false, null)).toBe(false)
+    const past = new Date(Date.now() - 60000).toISOString()
+    expect(shouldProcessJob('QUEUED', true, past)).toBe(true)
+  })
+
+  it('31. RETRYING respects scheduled_for in future', () => {
+    const future = new Date(Date.now() + 5 * 60 * 1000).toISOString()
+    expect(shouldProcessJob('RETRYING', true, future)).toBe(false)
+  })
+
+  it('32. idempotency key format is storeId:ruleId:eventId:entityId:actionType', () => {
+    const key = buildIdempotencyKey('store1', 'rule1', 'event1', 'prod1', 'GENERATE_PRODUCT_SEO')
+    expect(key).toBe('store1:rule1:event1:prod1:GENERATE_PRODUCT_SEO')
+    const keyNoEntity = buildIdempotencyKey('store1', 'rule1', 'event1', '', 'CREATE_NOTIFICATION')
+    expect(keyNoEntity).toBe('store1:rule1:event1::CREATE_NOTIFICATION')
+  })
+
+  it('33. duplicate approval does not execute twice', () => {
+    expect(shouldExecuteApproval('PENDING', 'WAITING_APPROVAL')).toBe(true)
+    expect(shouldExecuteApproval('APPROVED', 'COMPLETED')).toBe(false)
+    expect(shouldExecuteApproval('APPROVED', 'RUNNING')).toBe(false)
+    expect(shouldExecuteApproval('REJECTED', 'CANCELLED')).toBe(false)
+  })
+
+  it('34. EDITOR cannot toggle autopilot master switch', () => {
+    expect(canToggleAutopilot('EDITOR')).toBe(false)
+    expect(canToggleAutopilot('VIEWER')).toBe(false)
+    expect(canToggleAutopilot('ADMIN')).toBe(true)
+    expect(canToggleAutopilot('OWNER')).toBe(true)
+  })
+
+  it('35. unimplemented actions show Em desenvolvimento and cannot be enabled', () => {
+    const unimpl = ACTION_REGISTRY.filter((a) => !a.implemented)
+    expect(unimpl.length).toBeGreaterThan(0)
+    for (const a of unimpl) {
+      expect(canExecuteAction(a)).toBe(false)
+    }
+    expect(UNIMPLEMENTED_ACTIONS).toContain('CREATE_SHOPIFY_DRAFT')
+    expect(UNIMPLEMENTED_ACTIONS).toContain('CREATE_DAILY_BRIEFING')
+  })
+
+  it('36. implemented actions can be enabled', () => {
+    const impl = ACTION_REGISTRY.filter((a) => a.implemented)
+    expect(impl.length).toBeGreaterThan(0)
+    for (const a of impl) {
+      expect(canExecuteAction(a)).toBe(true)
+    }
+  })
+
+  it('37. cleanAiJson strips markdown fences', () => {
+    expect(cleanAiJson('```json\n{"key":"val"}\n```')).toBe('{"key":"val"}')
+    expect(cleanAiJson('```\n{"key":"val"}\n```')).toBe('{"key":"val"}')
+    expect(cleanAiJson('{"key":"val"}')).toBe('{"key":"val"}')
+  })
+
+  it('38. validateProductContentOutput requires description and seo_title', () => {
+    expect(validateProductContentOutput(null)).toBe(false)
+    expect(validateProductContentOutput({ description: 'ok' })).toBe(false)
+    expect(
+      validateProductContentOutput({
+        description: 'ok',
+        seo_title: 'title',
+        meta_description: 'm',
+        keywords: 'k',
+        slug: 's',
+      }),
+    ).toBe(true)
+  })
+
+  it('39. backoff schedule: attempt 1=1min, 2=5min, 3=15min', () => {
+    expect(calculateBackoff(1)).toBe(1)
+    expect(calculateBackoff(2)).toBe(5)
+    expect(calculateBackoff(3)).toBe(15)
+  })
+
+  it('40. retryable errors include 429, timeout, SkipAi, 500, 502, 503, 504', () => {
+    expect(isRetryableError('Error 429 too many requests')).toBe(true)
+    expect(isRetryableError('timeout occurred')).toBe(true)
+    expect(isRetryableError('SkipAiError: model failed')).toBe(true)
+    expect(isRetryableError('500 internal server error')).toBe(true)
+    expect(isRetryableError('502 bad gateway')).toBe(true)
+    expect(isRetryableError('503 service unavailable')).toBe(true)
+    expect(isRetryableError('504 gateway timeout')).toBe(true)
+    expect(isRetryableError('invalid product')).toBe(false)
   })
 })

@@ -8,8 +8,11 @@ routerAdd(
 
       var storeRecord = null
       try {
-        var stores = $app.findRecordsByFilter('stores', "id != ''", 'created', 1, 0)
-        if (stores.length > 0) storeRecord = stores[0]
+        var members = $app.findRecordsByFilter('store_members', 'user = {:uid}', '-created', 1, 0, {
+          uid: userId,
+        })
+        if (members.length > 0)
+          storeRecord = $app.findRecordById('stores', members[0].getString('store'))
       } catch (_) {}
 
       if (!storeRecord) return e.json(200, {})
@@ -40,15 +43,23 @@ routerAdd(
       var userId = e.auth ? e.auth.id : ''
       if (!userId) return e.unauthorizedError('Auth required')
 
-      var body = e.requestInfo().body || {}
       var storeRecord = null
+      var memberRole = ''
       try {
-        var stores = $app.findRecordsByFilter('stores', "id != ''", 'created', 1, 0)
-        if (stores.length > 0) storeRecord = stores[0]
+        var members = $app.findRecordsByFilter('store_members', 'user = {:uid}', '-created', 1, 0, {
+          uid: userId,
+        })
+        if (members.length > 0) {
+          memberRole = members[0].getString('role')
+          storeRecord = $app.findRecordById('stores', members[0].getString('store'))
+        }
       } catch (_) {}
 
       if (!storeRecord) return e.json(404, { error: 'Store not found' })
+      if (memberRole !== 'OWNER' && memberRole !== 'ADMIN')
+        return e.json(403, { error: 'Apenas OWNER/ADMIN podem alterar configuracoes' })
 
+      var body = e.requestInfo().body || {}
       if (body.store_name) storeRecord.set('name', body.store_name)
       if (body.api_version) storeRecord.set('api_version', body.api_version)
       if (body.autopilot_enabled !== undefined)

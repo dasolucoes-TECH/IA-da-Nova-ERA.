@@ -387,37 +387,25 @@ routerAdd(
       )
 
       try {
-        var dedupKeySync =
-          'sync:PRODUCT_SYNC_COMPLETED:' +
-          storesId +
-          ':' +
-          new Date().toISOString().substring(0, 13)
-        var existingSyncEvent = null
-        try {
-          existingSyncEvent = $app.findFirstRecordByFilter(
-            'automation_events',
-            'deduplication_key = {:dk}',
-            { dk: dedupKeySync },
-          )
-        } catch (_) {}
-        if (!existingSyncEvent) {
-          var syncEventsCol = $app.findCollectionByNameOrId('automation_events')
-          var syncEventRec = new Record(syncEventsCol)
-          syncEventRec.set('store', storesId)
-          syncEventRec.set('event_type', 'PRODUCT_SYNC_COMPLETED')
-          syncEventRec.set('source', 'sync')
-          syncEventRec.set('entity_type', 'sync')
-          syncEventRec.set('entity_id', storesId)
-          syncEventRec.set(
-            'payload',
-            JSON.stringify({ created: created, updated: updated, total: total }),
-          )
-          syncEventRec.set('deduplication_key', dedupKeySync)
-          syncEventRec.set('status', 'PROCESSED')
-          syncEventRec.set('received_at', new Date().toISOString())
-          syncEventRec.set('processed_at', new Date().toISOString())
-          $app.save(syncEventRec)
-        }
+        var syncDedupKey =
+          'sync:PRODUCT_SYNC_COMPLETED:' + storesId + ':' + new Date().toISOString()
+        var syncBaseUrl = $secrets.get('PB_INSTANCE_URL') || ''
+        var syncInternalSecret = $secrets.get('PB_SUPERUSER_TOKEN') || ''
+        $http.send({
+          url: syncBaseUrl + '/backend/v1/autopilot/emit-event-core',
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Internal-Secret': syncInternalSecret },
+          body: JSON.stringify({
+            storeId: storesId,
+            eventType: 'PRODUCT_SYNC_COMPLETED',
+            source: 'sync',
+            entityType: 'sync',
+            entityId: storesId,
+            payload: { created: created, updated: updated, total: total },
+            deduplicationKey: syncDedupKey,
+          }),
+          timeout: 30,
+        })
       } catch (_) {}
 
       return e.json(200, {

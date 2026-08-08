@@ -216,6 +216,24 @@ export function isCooldownActive(lastExecutedAt: string | null, cooldownMinutes:
   return new Date() < cooldownEnd
 }
 
+export function isEntityInCooldown(
+  ruleId: string,
+  entityType: string,
+  entityId: string,
+  cooldownMinutes: number,
+  lastJobCreatedAt: string | null,
+  lastJobEntityType: string | null,
+  lastJobEntityId: string | null,
+): boolean {
+  if (cooldownMinutes <= 0) return false
+  if (!lastJobCreatedAt) return false
+  if (lastJobEntityType !== entityType) return false
+  if (lastJobEntityId !== entityId) return false
+  const lastDate = new Date(lastJobCreatedAt)
+  const cooldownEnd = new Date(lastDate.getTime() + cooldownMinutes * 60000)
+  return new Date() < cooldownEnd
+}
+
 export function canRoleApprove(role: string, riskLevel: string): boolean {
   if (role === 'VIEWER') return false
   if (role === 'EDITOR' && (riskLevel === 'HIGH' || riskLevel === 'CRITICAL')) return false
