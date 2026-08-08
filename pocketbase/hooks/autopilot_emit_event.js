@@ -38,7 +38,7 @@ routerAdd(
       }
 
       var baseUrl = $secrets.get('PB_INSTANCE_URL') || ''
-      var internalSecret = $secrets.get('PB_SUPERUSER_TOKEN') || ''
+      var internalSecret = $secrets.get('AUTOPILOT_INTERNAL_SECRET') || ''
       var res = $http.send({
         url: baseUrl + '/backend/v1/autopilot/emit-event-core',
         method: 'POST',

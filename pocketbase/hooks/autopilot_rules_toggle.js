@@ -18,7 +18,8 @@ routerAdd(
         }
       } catch (_) {}
       if (!storeRecord) return e.json(403, { error: 'Nenhuma loja associada' })
-      if (memberRole === 'VIEWER') return e.json(403, { error: 'VIEWER não pode alterar regras' })
+      if (memberRole !== 'OWNER' && memberRole !== 'ADMIN')
+        return e.json(403, { error: 'Apenas OWNER e ADMIN podem alterar regras' })
 
       var ruleId = e.request.pathValue('id')
       var rule = $app.findRecordById('automation_rules', ruleId)

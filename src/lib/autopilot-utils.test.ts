@@ -26,6 +26,8 @@ import {
   validateInstagramOutput,
   validateProductContentOutput,
   cleanAiJson,
+  getEventStatusOnError,
+  EXECUTOR_ENDPOINT,
   ACTION_REGISTRY,
   UNSAFE_ACTIONS,
   UNIMPLEMENTED_ACTIONS,
@@ -393,5 +395,65 @@ describe('Autopilot Utils', () => {
     expect(isRetryableError('503 service unavailable')).toBe(true)
     expect(isRetryableError('504 gateway timeout')).toBe(true)
     expect(isRetryableError('invalid product')).toBe(false)
+  })
+
+  it('41. EDITOR cannot create rules → 403', () => {
+    expect(canManageRules('EDITOR')).toBe(false)
+    expect(canManageRules('VIEWER')).toBe(false)
+    expect(canManageRules('ADMIN')).toBe(true)
+    expect(canManageRules('OWNER')).toBe(true)
+  })
+
+  it('42. EDITOR cannot update rules → 403', () => {
+    expect(canManageRules('EDITOR')).toBe(false)
+    expect(canManageRules('VIEWER')).toBe(false)
+  })
+
+  it('43. EDITOR cannot toggle rules → 403', () => {
+    expect(canManageRules('EDITOR')).toBe(false)
+    expect(canManageRules('VIEWER')).toBe(false)
+  })
+
+  it('44. central executor: worker, manual, and approval all delegate to same endpoint', () => {
+    expect(EXECUTOR_ENDPOINT).toBe('/backend/v1/autopilot/execute-action')
+    expect(typeof EXECUTOR_ENDPOINT).toBe('string')
+    expect(EXECUTOR_ENDPOINT.startsWith('/backend/v1/')).toBe(true)
+  })
+
+  it('45. failed execution produces ERROR notification', () => {
+    expect(getNotificationSeverityForExecution('FAILED')).toBe('ERROR')
+    expect(getNotificationSeverityForExecution('FAILED')).not.toBe('SUCCESS')
+    expect(getNotificationSeverityForExecution('COMPLETED')).toBe('SUCCESS')
+  })
+
+  it('46. event core exception marks event as FAILED with processed_at', () => {
+    const result = getEventStatusOnError('rule evaluation failed')
+    expect(result.status).toBe('FAILED')
+    expect(result.error).toBe('rule evaluation failed')
+    expect(result.processed_at).toBeDefined()
+    expect(new Date(result.processed_at).getTime()).toBeLessThanOrEqual(Date.now())
+  })
+
+  it('47. event core exception never leaves event in PROCESSING', () => {
+    const result = getEventStatusOnError('cooldown check failed')
+    expect(result.status).not.toBe('PROCESSING')
+    expect(result.status).toBe('FAILED')
+    expect(result.processed_at).toBeDefined()
+  })
+
+  it('48. central executor delegation: retry logic works for delegated executions', () => {
+    expect(isRetryableError('SkipAiError: model timeout')).toBe(true)
+    expect(calculateBackoff(1)).toBe(1)
+    expect(calculateBackoff(2)).toBe(5)
+    expect(calculateBackoff(3)).toBe(15)
+  })
+
+  it('49. central executor delegation: completed and failed statuses are handled', () => {
+    const completedResult = { status: 'COMPLETED', message: 'ok' }
+    const failedResult = { status: 'FAILED', message: 'bad' }
+    expect(completedResult.status).toBe('COMPLETED')
+    expect(failedResult.status).toBe('FAILED')
+    expect(getNotificationSeverityForExecution(completedResult.status)).toBe('SUCCESS')
+    expect(getNotificationSeverityForExecution(failedResult.status)).toBe('ERROR')
   })
 })

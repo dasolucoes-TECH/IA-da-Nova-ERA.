@@ -1,3 +1,5 @@
+export const EXECUTOR_ENDPOINT = '/backend/v1/autopilot/execute-action'
+
 export interface Condition {
   field?: string
   operator?: string
@@ -375,6 +377,16 @@ export function validateProductContentOutput(data: unknown): boolean {
     typeof d.keywords === 'string' &&
     typeof d.slug === 'string'
   )
+}
+
+export function getEventStatusOnError(
+  error: string,
+): { status: string; error: string; processed_at: string } {
+  return {
+    status: 'FAILED',
+    error,
+    processed_at: new Date().toISOString(),
+  }
 }
 
 export function cleanAiJson(text: string): string {

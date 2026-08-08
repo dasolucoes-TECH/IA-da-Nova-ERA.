@@ -18,7 +18,8 @@ routerAdd(
         }
       } catch (_) {}
       if (!storeRecord) return e.json(403, { error: 'Nenhuma loja associada' })
-      if (memberRole === 'VIEWER') return e.json(403, { error: 'VIEWER não pode criar regras' })
+      if (memberRole !== 'OWNER' && memberRole !== 'ADMIN')
+        return e.json(403, { error: 'Apenas OWNER e ADMIN podem criar regras' })
 
       var body = e.requestInfo().body || {}
       if (!body.name || !body.trigger_type || !body.action_type || !body.autonomy_mode) {

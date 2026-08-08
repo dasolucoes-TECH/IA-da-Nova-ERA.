@@ -1,7 +1,7 @@
 routerAdd('POST', '/backend/v1/autopilot/execute-action', (e) => {
   try {
     var providedSecret = e.request.header.get('X-Internal-Secret') || ''
-    var expectedSecret = $secrets.get('PB_SUPERUSER_TOKEN') || ''
+    var expectedSecret = $secrets.get('AUTOPILOT_INTERNAL_SECRET') || ''
     if (!expectedSecret || providedSecret !== expectedSecret) {
       return e.unauthorizedError('Internal only')
     }

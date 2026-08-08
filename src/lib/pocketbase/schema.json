@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-08T08:09:17.434Z",
+  "generatedAt": "2026-08-08T08:45:28.119Z",
   "collections": [
     {
       "name": "users",
@@ -29,14 +29,19 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         }
       ],
       "indexes": [
@@ -72,14 +77,19 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         },
         {
           "name": "shopify_collection_id",
@@ -99,7 +109,12 @@
           "type": "select",
           "required": false,
           "system": false,
-          "selectValues": ["shopify", "local", "demo", "system"]
+          "selectValues": [
+            "shopify",
+            "local",
+            "demo",
+            "system"
+          ]
         }
       ],
       "indexes": [
@@ -140,14 +155,19 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         },
         {
           "name": "store",
@@ -161,7 +181,12 @@
           "type": "select",
           "required": false,
           "system": false,
-          "selectValues": ["shopify", "local", "demo", "system"]
+          "selectValues": [
+            "shopify",
+            "local",
+            "demo",
+            "system"
+          ]
         }
       ],
       "indexes": []
@@ -226,7 +251,10 @@
           "type": "select",
           "required": false,
           "system": false,
-          "selectValues": ["rascunho", "publicado"]
+          "selectValues": [
+            "rascunho",
+            "publicado"
+          ]
         },
         {
           "name": "images",
@@ -329,14 +357,19 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         },
         {
           "name": "shopify_id",
@@ -368,7 +401,12 @@
           "type": "select",
           "required": false,
           "system": false,
-          "selectValues": ["shopify", "local", "demo", "system"]
+          "selectValues": [
+            "shopify",
+            "local",
+            "demo",
+            "system"
+          ]
         },
         {
           "name": "product_type",
@@ -448,7 +486,13 @@
           "type": "select",
           "required": false,
           "system": false,
-          "selectValues": ["pending", "paid", "shipped", "delivered", "cancelled"]
+          "selectValues": [
+            "pending",
+            "paid",
+            "shipped",
+            "delivered",
+            "cancelled"
+          ]
         },
         {
           "name": "items",
@@ -467,14 +511,19 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         },
         {
           "name": "shopify_id",
@@ -500,7 +549,12 @@
           "type": "select",
           "required": false,
           "system": false,
-          "selectValues": ["shopify", "local", "demo", "system"]
+          "selectValues": [
+            "shopify",
+            "local",
+            "demo",
+            "system"
+          ]
         },
         {
           "name": "fulfillment_status",
@@ -556,7 +610,12 @@
           "type": "select",
           "required": false,
           "system": false,
-          "selectValues": ["desconto", "banner", "landing", "social"]
+          "selectValues": [
+            "desconto",
+            "banner",
+            "landing",
+            "social"
+          ]
         },
         {
           "name": "products",
@@ -588,7 +647,12 @@
           "type": "select",
           "required": false,
           "system": false,
-          "selectValues": ["draft", "active", "paused", "ended"]
+          "selectValues": [
+            "draft",
+            "active",
+            "paused",
+            "ended"
+          ]
         },
         {
           "name": "description",
@@ -601,14 +665,19 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         },
         {
           "name": "store",
@@ -622,7 +691,12 @@
           "type": "select",
           "required": false,
           "system": false,
-          "selectValues": ["shopify", "local", "demo", "system"]
+          "selectValues": [
+            "shopify",
+            "local",
+            "demo",
+            "system"
+          ]
         }
       ],
       "indexes": [
@@ -670,7 +744,11 @@
           "type": "select",
           "required": false,
           "system": false,
-          "selectValues": ["hero", "promo", "footer"]
+          "selectValues": [
+            "hero",
+            "promo",
+            "footer"
+          ]
         },
         {
           "name": "active",
@@ -683,14 +761,19 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         },
         {
           "name": "store",
@@ -704,7 +787,12 @@
           "type": "select",
           "required": false,
           "system": false,
-          "selectValues": ["shopify", "local", "demo", "system"]
+          "selectValues": [
+            "shopify",
+            "local",
+            "demo",
+            "system"
+          ]
         }
       ],
       "indexes": [
@@ -728,7 +816,11 @@
           "type": "select",
           "required": false,
           "system": false,
-          "selectValues": ["visit", "sale", "conversion"]
+          "selectValues": [
+            "visit",
+            "sale",
+            "conversion"
+          ]
         },
         {
           "name": "product",
@@ -754,14 +846,19 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         },
         {
           "name": "store",
@@ -846,14 +943,19 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         },
         {
           "name": "members",
@@ -903,24 +1005,36 @@
           "type": "select",
           "required": true,
           "system": false,
-          "selectValues": ["OWNER", "ADMIN", "EDITOR", "VIEWER"]
+          "selectValues": [
+            "OWNER",
+            "ADMIN",
+            "EDITOR",
+            "VIEWER"
+          ]
         },
         {
           "name": "created",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         }
       ],
-      "indexes": ["CREATE UNIQUE INDEX idx_store_members_store_user ON store_members (store, user)"]
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_store_members_store_user ON store_members (store, user)"
+      ]
     },
     {
       "name": "action_logs",
@@ -970,7 +1084,13 @@
           "type": "select",
           "required": false,
           "system": false,
-          "selectValues": ["PROPOSED", "APPROVED", "EXECUTED", "FAILED", "CANCELLED"]
+          "selectValues": [
+            "PROPOSED",
+            "APPROVED",
+            "EXECUTED",
+            "FAILED",
+            "CANCELLED"
+          ]
         },
         {
           "name": "summary",
@@ -995,21 +1115,32 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         },
         {
           "name": "execution_source",
           "type": "select",
           "required": false,
           "system": false,
-          "selectValues": ["USER", "AUTOMATION", "AI", "SHOPIFY_WEBHOOK", "SYSTEM"]
+          "selectValues": [
+            "USER",
+            "AUTOMATION",
+            "AI",
+            "SHOPIFY_WEBHOOK",
+            "SYSTEM"
+          ]
         },
         {
           "name": "estimated_minutes_saved",
@@ -1124,14 +1255,19 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         }
       ],
       "indexes": [
@@ -1241,14 +1377,19 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         }
       ],
       "indexes": [
@@ -1316,14 +1457,19 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         }
       ],
       "indexes": [
@@ -1402,7 +1548,11 @@
           "type": "select",
           "required": true,
           "system": false,
-          "selectValues": ["SUGGEST", "APPROVAL", "AUTOPILOT"]
+          "selectValues": [
+            "SUGGEST",
+            "APPROVAL",
+            "AUTOPILOT"
+          ]
         },
         {
           "name": "priority",
@@ -1446,14 +1596,19 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         }
       ],
       "indexes": [
@@ -1521,7 +1676,13 @@
           "type": "select",
           "required": false,
           "system": false,
-          "selectValues": ["PENDING", "PROCESSING", "PROCESSED", "FAILED", "IGNORED"]
+          "selectValues": [
+            "PENDING",
+            "PROCESSING",
+            "PROCESSED",
+            "FAILED",
+            "IGNORED"
+          ]
         },
         {
           "name": "received_at",
@@ -1546,14 +1707,19 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         }
       ],
       "indexes": [
@@ -1675,14 +1841,19 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         },
         {
           "name": "idempotency_key",
@@ -1787,14 +1958,25 @@
           "type": "select",
           "required": false,
           "system": false,
-          "selectValues": ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
+          "selectValues": [
+            "LOW",
+            "MEDIUM",
+            "HIGH",
+            "CRITICAL"
+          ]
         },
         {
           "name": "status",
           "type": "select",
           "required": false,
           "system": false,
-          "selectValues": ["PENDING", "APPROVED", "REJECTED", "EXPIRED", "CANCELLED"]
+          "selectValues": [
+            "PENDING",
+            "APPROVED",
+            "REJECTED",
+            "EXPIRED",
+            "CANCELLED"
+          ]
         },
         {
           "name": "expires_at",
@@ -1819,14 +2001,19 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         }
       ],
       "indexes": [
@@ -1882,7 +2069,13 @@
           "type": "select",
           "required": false,
           "system": false,
-          "selectValues": ["INFO", "SUCCESS", "WARNING", "ERROR", "CRITICAL"]
+          "selectValues": [
+            "INFO",
+            "SUCCESS",
+            "WARNING",
+            "ERROR",
+            "CRITICAL"
+          ]
         },
         {
           "name": "entity_type",
@@ -1907,14 +2100,19 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         }
       ],
       "indexes": [
