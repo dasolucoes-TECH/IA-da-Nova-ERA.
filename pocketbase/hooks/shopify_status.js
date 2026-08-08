@@ -3,154 +3,232 @@ routerAdd(
   '/backend/v1/shopify/status',
   (e) => {
     try {
-      const token = $secrets.get('SHOPIFY_ACCESS_TOKEN') || ''
+      const clientId = $secrets.get('SHOPIFY_CLIENT_ID') || ''
+      const clientSecret = $secrets.get('SHOPIFY_CLIENT_SECRET') || ''
       const domain = $secrets.get('SHOPIFY_STORE_DOMAIN') || ''
+      const apiVersion = $secrets.get('SHOPIFY_API_VERSION') || '2024-10'
 
-      if (!token && !domain) {
+      if (!clientId) {
         return e.json(200, {
           connected: false,
+          status: 'NOT_CONFIGURED',
           storeDomain: '',
           apiVersion: '',
-          message:
-            'SHOPIFY_ACCESS_TOKEN e SHOPIFY_STORE_DOMAIN não configurados. Acesse os secrets do Skip Cloud e configure ambos os valores.',
+          message: 'SHOPIFY_CLIENT_ID não configurado.',
         })
       }
-
-      if (!token) {
+      if (!clientSecret) {
         return e.json(200, {
           connected: false,
-          storeDomain: domain,
+          status: 'NOT_CONFIGURED',
+          storeDomain: '',
           apiVersion: '',
-          message:
-            'SHOPIFY_ACCESS_TOKEN está vazio. Gere um token no painel de Custom Apps da Shopify (deve começar com shpat_).',
+          message: 'SHOPIFY_CLIENT_SECRET não configurado.',
         })
       }
-
       if (!domain) {
         return e.json(200, {
           connected: false,
+          status: 'NOT_CONFIGURED',
           storeDomain: '',
           apiVersion: '',
-          message:
-            'SHOPIFY_STORE_DOMAIN está vazio. Informe o domínio da loja no formato sualoja.myshopify.com (sem https:// ou /admin).',
+          message: 'SHOPIFY_STORE_DOMAIN não configurado.',
         })
       }
 
-      if (!token.startsWith('shpat_')) {
-        return e.json(200, {
-          connected: false,
-          storeDomain: domain,
-          apiVersion: '',
-          message:
-            'SHOPIFY_ACCESS_TOKEN inválido. O token de acesso Admin API deve começar com "shpat_". Acesse a aba Secrets no painel do Skip Cloud, atualize o secret SHOPIFY_ACCESS_TOKEN com um token válido (gerado no painel de Custom Apps da Shopify) e clique novamente em "Verificar Conexão". Tokens do tipo shpss_ (partner app secret) não são mais suportados.',
-        })
-      }
-
-      var cleanDomain = domain.trim().toLowerCase()
-      cleanDomain = cleanDomain.replace(/^https?:\/\//, '').replace(/\/.*$/, '')
+      var cleanDomain = domain
+        .trim()
+        .toLowerCase()
+        .replace(/^https?:\/\//, '')
+        .replace(/\/.*$/, '')
 
       if (!cleanDomain.match(/^[a-z0-9][a-z0-9\-]*\.myshopify\.com$/)) {
         return e.json(200, {
           connected: false,
+          status: 'NOT_CONFIGURED',
           storeDomain: domain,
           apiVersion: '',
-          message:
-            'SHOPIFY_STORE_DOMAIN inválido. Use o formato "sualoja.myshopify.com" sem https://, barras ou /admin.',
+          message: 'Use o domínio interno da Shopify no formato nomedaloja.myshopify.com.',
         })
       }
 
-      const apiVersion = $secrets.get('SHOPIFY_API_VERSION') || '2024-10'
-      const url = 'https://' + cleanDomain + '/admin/api/' + apiVersion + '/shop.json'
-
-      let res
+      var tokenRes
       try {
-        res = $http.send({
-          url: url,
-          method: 'GET',
+        tokenRes = $http.send({
+          url: 'https://' + cleanDomain + '/admin/oauth/access_token',
+          method: 'POST',
           headers: {
-            'X-Shopify-Access-Token': token,
-            'Content-Type': 'application/json',
+            'Content-Type': 'application/x-www-form-urlencoded',
+            Accept: 'application/json',
           },
+          body:
+            'grant_type=client_credentials&client_id=' +
+            clientId +
+            '&client_secret=' +
+            clientSecret,
           timeout: 15,
         })
       } catch (err) {
         return e.json(200, {
           connected: false,
+          status: 'API_ERROR',
           storeDomain: cleanDomain,
           apiVersion: apiVersion,
           message:
-            'Falha de rede ao conectar com a Shopify. Verifique se o domínio "' +
-            cleanDomain +
-            '" está correto e se há conectividade. Erro: ' +
+            'Falha de rede ao conectar com a Shopify. Verifique o domínio e a conectividade. Erro: ' +
             String(err),
         })
       }
 
-      if (res.statusCode === 401 || res.statusCode === 403) {
-        let hint = 'Token de acesso recusado pela Shopify (HTTP ' + res.statusCode + ').'
-        hint +=
-          ' Gere um novo token no painel de Custom Apps e certifique-se de conceder as permissões: read_products, write_products, read_orders, write_orders, read_inventory, write_inventory.'
+      if (tokenRes.statusCode === 401) {
         return e.json(200, {
           connected: false,
+          status: 'AUTH_ERROR',
           storeDomain: cleanDomain,
           apiVersion: apiVersion,
-          message: hint,
+          message: 'Client ID ou Client Secret inválido.',
         })
       }
-
-      if (res.statusCode === 404) {
+      if (tokenRes.statusCode === 403) {
         return e.json(200, {
           connected: false,
-          storeDomain: cleanDomain,
-          apiVersion: apiVersion,
-          message:
-            'Loja não encontrada na Shopify (HTTP 404). Verifique se o domínio "' +
-            cleanDomain +
-            '" corresponde a uma loja ativa.',
-        })
-      }
-
-      if (res.statusCode === 429) {
-        return e.json(200, {
-          connected: false,
+          status: 'AUTH_ERROR',
           storeDomain: cleanDomain,
           apiVersion: apiVersion,
           message:
-            'Limite de taxa da Shopify atingido (HTTP 429). Aguarde alguns instantes e tente novamente.',
+            'O aplicativo não possui permissão suficiente ou não está instalado corretamente na loja.',
         })
       }
-
-      if (res.statusCode !== 200) {
+      if (tokenRes.statusCode !== 200) {
         return e.json(200, {
           connected: false,
+          status: 'API_ERROR',
           storeDomain: cleanDomain,
           apiVersion: apiVersion,
           message:
-            'Shopify respondeu com status ' +
-            res.statusCode +
-            '. Verifique o token de acesso e as permissões do Custom App.',
+            'Shopify respondeu com status ' + tokenRes.statusCode + ' ao gerar token de acesso.',
         })
       }
 
-      let shopData = {}
+      var tokenData
       try {
-        shopData = res.json
-      } catch (_) {}
+        tokenData = tokenRes.json
+      } catch (_) {
+        return e.json(200, {
+          connected: false,
+          status: 'API_ERROR',
+          storeDomain: cleanDomain,
+          apiVersion: apiVersion,
+          message: 'Resposta inválida do Shopify ao gerar token.',
+        })
+      }
 
-      let productCount = 0
-      let orderCount = 0
-      let lastProductSync = ''
-      let lastOrderSync = ''
+      var accessToken = tokenData.access_token || ''
+      if (!accessToken) {
+        return e.json(200, {
+          connected: false,
+          status: 'API_ERROR',
+          storeDomain: cleanDomain,
+          apiVersion: apiVersion,
+          message: 'Token de acesso não recebido da Shopify.',
+        })
+      }
+
+      var query = 'query { shop { name myshopifyDomain primaryDomain { url } } }'
+
+      var graphQLRes
       try {
-        const prods = $app.findRecordsByFilter('products', "shopify_id != ''", '-created', 500, 0)
-        productCount = prods.length
+        graphQLRes = $http.send({
+          url: 'https://' + cleanDomain + '/admin/api/' + apiVersion + '/graphql.json',
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Shopify-Access-Token': accessToken,
+          },
+          body: JSON.stringify({ query: query }),
+          timeout: 15,
+        })
+      } catch (err) {
+        return e.json(200, {
+          connected: false,
+          status: 'API_ERROR',
+          storeDomain: cleanDomain,
+          apiVersion: apiVersion,
+          message: 'Falha de rede ao consultar a loja na Shopify. Erro: ' + String(err),
+        })
+      }
+
+      if (graphQLRes.statusCode === 401) {
+        return e.json(200, {
+          connected: false,
+          status: 'AUTH_ERROR',
+          storeDomain: cleanDomain,
+          apiVersion: apiVersion,
+          message:
+            'Token de acesso recusado pela Shopify (HTTP 401). Verifique se o aplicativo está instalado corretamente.',
+        })
+      }
+
+      if (graphQLRes.statusCode !== 200) {
+        return e.json(200, {
+          connected: false,
+          status: 'API_ERROR',
+          storeDomain: cleanDomain,
+          apiVersion: apiVersion,
+          message:
+            'Shopify respondeu com status ' + graphQLRes.statusCode + ' ao consultar a loja.',
+        })
+      }
+
+      var graphQLData
+      try {
+        graphQLData = graphQLRes.json
+      } catch (_) {
+        return e.json(200, {
+          connected: false,
+          status: 'API_ERROR',
+          storeDomain: cleanDomain,
+          apiVersion: apiVersion,
+          message: 'Resposta inválida do Shopify ao consultar a loja.',
+        })
+      }
+
+      if (graphQLData.errors) {
+        var errStr = JSON.stringify(graphQLData.errors)
+        if (errStr.indexOf('ACCESS_DENIED') !== -1) {
+          return e.json(200, {
+            connected: false,
+            status: 'PERMISSION_ERROR',
+            storeDomain: cleanDomain,
+            apiVersion: apiVersion,
+            message: 'Escopo Shopify insuficiente para essa operação.',
+          })
+        }
+        return e.json(200, {
+          connected: false,
+          status: 'API_ERROR',
+          storeDomain: cleanDomain,
+          apiVersion: apiVersion,
+          message: 'Erro GraphQL: ' + errStr,
+        })
+      }
+
+      var shop = graphQLData.data && graphQLData.data.shop ? graphQLData.data.shop : {}
+
+      var syncedProducts = 0
+      var syncedOrders = 0
+      var lastProductSync = ''
+      var lastOrderSync = ''
+      try {
+        var prods = $app.findRecordsByFilter('products', "shopify_id != ''", '-created', 500, 0)
+        syncedProducts = prods.length
         if (prods.length > 0 && prods[0].getString('updated')) {
           lastProductSync = prods[0].getString('updated')
         }
       } catch (_) {}
       try {
-        const ords = $app.findRecordsByFilter('orders', "shopify_id != ''", '-created', 500, 0)
-        orderCount = ords.length
+        var ords = $app.findRecordsByFilter('orders', "shopify_id != ''", '-created', 500, 0)
+        syncedOrders = ords.length
         if (ords.length > 0 && ords[0].getString('updated')) {
           lastOrderSync = ords[0].getString('updated')
         }
@@ -158,15 +236,17 @@ routerAdd(
 
       return e.json(200, {
         connected: true,
+        status: 'CONNECTED',
         storeDomain: cleanDomain,
         apiVersion: apiVersion,
-        shopName: shopData.shop ? shopData.shop.name : '',
-        shopEmail: shopData.shop ? shopData.shop.email || '' : '',
-        shopCurrency: shopData.shop ? shopData.shop.currency || '' : '',
-        syncedProducts: productCount,
-        syncedOrders: orderCount,
+        shopName: shop.name || '',
+        domain: shop.primaryDomain && shop.primaryDomain.url ? shop.primaryDomain.url : '',
+        myshopifyDomain: shop.myshopifyDomain || cleanDomain,
+        syncedProducts: syncedProducts,
+        syncedOrders: syncedOrders,
         lastProductSync: lastProductSync,
         lastOrderSync: lastOrderSync,
+        verifiedAt: new Date().toISOString(),
       })
     } catch (err) {
       return e.json(500, { error: 'Erro ao verificar status: ' + String(err) })

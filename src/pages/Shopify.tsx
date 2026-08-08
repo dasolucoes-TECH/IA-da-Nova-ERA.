@@ -11,6 +11,8 @@ import {
   AlertTriangle,
   Clock,
   Mail,
+  ShieldAlert,
+  KeyRound,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -23,6 +25,7 @@ import {
   syncOrders,
   publishProduct,
   type ShopifyStatus,
+  type ShopifyConnectionStatus,
 } from '@/services/shopify'
 import { getProducts, type ProductRecord } from '@/services/products'
 import { useRealtime } from '@/hooks/use-realtime'
@@ -32,7 +35,7 @@ const integrations = [
   {
     name: 'Shopify Admin API',
     icon: '🛍️',
-    description: 'Sincronização de catálogo e pedidos em tempo real.',
+    description: 'Sincronização de catálogo e pedidos via GraphQL com Client Credentials.',
   },
   {
     name: 'Meta Graph & Instagram',
@@ -67,6 +70,15 @@ function formatDate(iso: string): string {
   }
 }
 
+const statusConfig: Record<ShopifyConnectionStatus, { label: string; color: string }> = {
+  NOT_CONFIGURED: { label: 'Não configurado', color: 'bg-amber-400 text-[#071B3B]' },
+  CONNECTING: { label: 'Conectando...', color: 'bg-blue-400 text-white' },
+  CONNECTED: { label: 'Conectado', color: 'bg-emerald-500 text-white' },
+  AUTH_ERROR: { label: 'Erro de autenticação', color: 'bg-rose-500 text-white' },
+  PERMISSION_ERROR: { label: 'Permissão insuficiente', color: 'bg-orange-500 text-white' },
+  API_ERROR: { label: 'Erro de API', color: 'bg-rose-500 text-white' },
+}
+
 export default function Shopify() {
   const [status, setStatus] = useState<ShopifyStatus | null>(null)
   const [products, setProducts] = useState<ProductRecord[]>([])
@@ -76,6 +88,7 @@ export default function Shopify() {
   const [publishingId, setPublishingId] = useState<string | null>(null)
 
   const loadStatus = useCallback(async () => {
+    setLoadingStatus(true)
     try {
       const s = await getShopifyStatus()
       setStatus(s)
@@ -130,12 +143,20 @@ export default function Shopify() {
     setSyncingOrders(true)
     try {
       const result = await syncOrders()
-      toast({
-        title: 'Sincronização de Pedidos Concluída',
-        description: `${result.created} pedidos importados, ${result.updated} atualizados${
-          result.errors.length > 0 ? `, ${result.errors.length} erros` : ''
-        }.`,
-      })
+      if (result.status === 'permission_required') {
+        toast({
+          title: 'Permissão Necessária',
+          description: result.message || 'O escopo read_orders precisa ser aprovado na Shopify.',
+          variant: 'destructive',
+        })
+      } else {
+        toast({
+          title: 'Sincronização de Pedidos Concluída',
+          description: `${result.created} pedidos importados, ${result.updated} atualizados${
+            result.errors.length > 0 ? `, ${result.errors.length} erros` : ''
+          }.`,
+        })
+      }
       loadStatus()
     } catch (e) {
       toast({
@@ -153,8 +174,8 @@ export default function Shopify() {
     try {
       const result = await publishProduct(id)
       toast({
-        title: result.reused ? 'Draft Reutilizado' : 'Produto Publicado na Shopify',
-        description: `${name} → Draft #${result.draftId} (${result.status}). ${result.message}`,
+        title: result.reused ? 'Produto já publicado' : 'Produto Publicado na Shopify',
+        description: `${name} → ${result.handle || result.productId} (${result.status}). ${result.message}`,
       })
       loadProducts()
     } catch (e) {
@@ -168,16 +189,20 @@ export default function Shopify() {
     }
   }
 
-  const draftProducts = products.filter((p) => p.status === 'rascunho' || !p.shopify_draft_id)
   const isConnected = status?.connected === true
-  const hasErrorMessage = !isConnected && !!status?.message
+  const connectionStatus: ShopifyConnectionStatus =
+    status?.status || (loadingStatus ? 'CONNECTING' : 'NOT_CONFIGURED')
+  const hasError = !isConnected && !!status?.message && status?.status !== 'NOT_CONFIGURED'
+  const draftProducts = products.filter(
+    (p) => !p.shopify_id || p.shopify_id === '' || p.status === 'rascunho',
+  )
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Central de Integração Shopify</h1>
         <p className="text-xs text-slate-500">
-          Status de conexão e sincronização da sua loja Shopify.
+          Status de conexão e sincronização da sua loja Shopify via Client Credentials.
         </p>
       </div>
 
@@ -199,17 +224,11 @@ export default function Shopify() {
                   {loadingStatus
                     ? 'Verificando conexão...'
                     : isConnected
-                      ? `Loja ${status?.shopName || 'Nova Era AI'}`
-                      : 'Shopify não conectado'}
+                      ? `Shopify conectada — ${status?.shopName || 'Nova Era AI'}`
+                      : 'Shopify não conectada'}
                 </h2>
-                <Badge
-                  className={
-                    isConnected
-                      ? 'bg-emerald-500 text-white'
-                      : 'bg-amber-400 text-[#071B3B] font-bold'
-                  }
-                >
-                  {isConnected ? 'Conectado' : 'Não configurado'}
+                <Badge className={statusConfig[connectionStatus].color}>
+                  {statusConfig[connectionStatus].label}
                 </Badge>
               </div>
               {isConnected ? (
@@ -217,31 +236,19 @@ export default function Shopify() {
                   <p className="text-xs text-slate-500 flex items-center gap-1">
                     <Globe className="w-3.5 h-3.5" /> {status?.storeDomain} · API{' '}
                     {status?.apiVersion}
-                    {status?.shopCurrency && <span className="ml-1">· {status.shopCurrency}</span>}
+                    {status?.domain && <span className="ml-1">· {status.domain}</span>}
                   </p>
-                  {(status?.shopEmail ||
-                    status?.syncedProducts !== undefined ||
-                    status?.syncedOrders !== undefined) && (
+                  <p className="text-xs text-emerald-500 flex items-center gap-1">
+                    <CheckCircle className="w-3 h-3" /> Conexão verificada agora
+                  </p>
+                  {(status?.syncedProducts !== undefined || status?.syncedOrders !== undefined) && (
                     <p className="text-xs text-slate-500 flex items-center gap-2 flex-wrap">
-                      {status?.shopEmail && (
-                        <span className="flex items-center gap-1">
-                          <Mail className="w-3 h-3" /> {status.shopEmail}
-                        </span>
-                      )}
                       {status?.syncedProducts !== undefined && (
                         <span>· {status.syncedProducts} produtos sincronizados</span>
                       )}
                       {status?.syncedOrders !== undefined && (
                         <span>· {status.syncedOrders} pedidos sincronizados</span>
                       )}
-                    </p>
-                  )}
-                  {(status?.lastProductSync || status?.lastOrderSync) && (
-                    <p className="text-xs text-slate-400 flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
-                      Última sync produtos: {formatDate(status?.lastProductSync || '')}
-                      {' · '}
-                      pedidos: {formatDate(status?.lastOrderSync || '')}
                     </p>
                   )}
                 </div>
@@ -280,10 +287,16 @@ export default function Shopify() {
         </CardContent>
       </Card>
 
-      {hasErrorMessage && (
+      {hasError && (
         <Alert variant="destructive" className="rounded-2xl">
           <AlertTriangle className="w-4 h-4" />
-          <AlertTitle>Problema na Conexão Shopify</AlertTitle>
+          <AlertTitle>
+            {connectionStatus === 'AUTH_ERROR'
+              ? 'Erro de Autenticação Shopify'
+              : connectionStatus === 'PERMISSION_ERROR'
+                ? 'Permissão Insuficiente'
+                : 'Problema na Conexão Shopify'}
+          </AlertTitle>
           <AlertDescription className="text-sm space-y-3">
             <p>{status?.message}</p>
             <div className="rounded-lg bg-destructive/10 p-3 text-xs space-y-2">
@@ -295,17 +308,23 @@ export default function Shopify() {
                 <li>
                   Configure o secret{' '}
                   <code className="font-mono bg-destructive/20 px-1 rounded">
-                    SHOPIFY_ACCESS_TOKEN
+                    SHOPIFY_CLIENT_ID
                   </code>{' '}
-                  com um token Admin API válido (deve começar com{' '}
-                  <code className="font-mono bg-destructive/20 px-1 rounded">shpat_</code>)
+                  com o Client ID do seu Custom App na Shopify
+                </li>
+                <li>
+                  Configure o secret{' '}
+                  <code className="font-mono bg-destructive/20 px-1 rounded">
+                    SHOPIFY_CLIENT_SECRET
+                  </code>{' '}
+                  com o Client Secret do seu Custom App
                 </li>
                 <li>
                   Configure o secret{' '}
                   <code className="font-mono bg-destructive/20 px-1 rounded">
                     SHOPIFY_STORE_DOMAIN
                   </code>{' '}
-                  com o domínio da loja (ex:{' '}
+                  com o domínio interno da loja (ex:{' '}
                   <code className="font-mono bg-destructive/20 px-1 rounded">
                     sualoja.myshopify.com
                   </code>
@@ -313,10 +332,10 @@ export default function Shopify() {
                 </li>
                 <li>Clique novamente em "Verificar Conexão" acima</li>
               </ol>
-              <p className="text-destructive/80 pt-1">
-                ⚠️ Tokens do tipo <code className="font-mono">shpss_</code> (partner app secret) não
-                são mais suportados. Use um Admin API access token (
-                <code className="font-mono">shpat_</code>).
+              <p className="text-destructive/80 pt-1 flex items-center gap-1">
+                <KeyRound className="w-3 h-3" />
+                A autenticação usa o fluxo oficial Client Credentials Grant — não são mais
+                necessários tokens manuais (shpat_).
               </p>
             </div>
           </AlertDescription>
@@ -330,7 +349,7 @@ export default function Shopify() {
             Produtos Rascunho para Publicar
           </CardTitle>
           <CardDescription className="text-xs">
-            Publique produtos locais como draft orders na Shopify.
+            Publique produtos locais como DRAFT na Shopify via GraphQL.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -366,9 +385,9 @@ export default function Shopify() {
                       </td>
                       <td className="py-3 font-bold">R$ {p.price.toFixed(2)}</td>
                       <td className="py-3">
-                        {p.shopify_draft_id ? (
+                        {p.shopify_id ? (
                           <Badge className="bg-blue-500 text-white">
-                            Draft #{p.shopify_draft_id}
+                            GID {p.shopify_id.slice(-8)}
                           </Badge>
                         ) : (
                           <Badge variant="outline" className="text-amber-600 border-amber-200">
@@ -457,6 +476,21 @@ export default function Shopify() {
           ))}
         </div>
       </div>
+
+      {!isConnected && !loadingStatus && status?.status === 'NOT_CONFIGURED' && (
+        <Card className="rounded-2xl border-2 border-dashed border-amber-300 bg-amber-50/50 dark:bg-amber-500/5">
+          <CardContent className="p-6 flex items-start gap-4">
+            <ShieldAlert className="w-6 h-6 text-amber-500 flex-shrink-0" />
+            <div className="space-y-1">
+              <h3 className="text-sm font-bold">Modo demonstração</h3>
+              <p className="text-xs text-slate-500">
+                A Shopify não está conectada. Configure as credenciais (Client ID, Client Secret e
+                domínio da loja) nos Secrets do Skip Cloud para usar dados reais.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

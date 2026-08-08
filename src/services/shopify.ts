@@ -1,16 +1,26 @@
 import pb from '@/lib/pocketbase/client'
 
+export type ShopifyConnectionStatus =
+  | 'NOT_CONFIGURED'
+  | 'CONNECTING'
+  | 'CONNECTED'
+  | 'AUTH_ERROR'
+  | 'PERMISSION_ERROR'
+  | 'API_ERROR'
+
 export interface ShopifyStatus {
   connected: boolean
+  status: ShopifyConnectionStatus
   storeDomain: string
   apiVersion: string
   shopName?: string
-  shopEmail?: string
-  shopCurrency?: string
+  domain?: string
+  myshopifyDomain?: string
   syncedProducts?: number
   syncedOrders?: number
   lastProductSync?: string
   lastOrderSync?: string
+  verifiedAt?: string
   message?: string
 }
 
@@ -19,10 +29,13 @@ export interface SyncResult {
   updated: number
   total: number
   errors: Array<{ product?: string; order?: string; error: string }>
+  status?: 'success' | 'permission_required'
+  message?: string
 }
 
 export interface PublishResult {
-  draftId: string
+  productId: string
+  handle: string
   status: string
   message: string
   reused: boolean

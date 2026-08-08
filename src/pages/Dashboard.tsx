@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { getAnalyticsSummary, AnalyticsSummary } from '@/services/analytics'
 import { getOrders, OrderRecord } from '@/services/orders'
+import { getShopifyStatus, type ShopifyStatus } from '@/services/shopify'
 import { useRealtime } from '@/hooks/use-realtime'
 import {
   AreaChart,
@@ -43,12 +44,18 @@ export default function Dashboard() {
   const [summary, setSummary] = useState<AnalyticsSummary | null>(null)
   const [orders, setOrders] = useState<OrderRecord[]>([])
   const [loading, setLoading] = useState(true)
+  const [demoMode, setDemoMode] = useState(true)
 
   const loadData = async () => {
     try {
-      const [sum, ords] = await Promise.all([getAnalyticsSummary(), getOrders()])
+      const [sum, ords, shopStatus] = await Promise.all([
+        getAnalyticsSummary(),
+        getOrders(),
+        getShopifyStatus().catch(() => null),
+      ])
       setSummary(sum)
       setOrders(ords.slice(0, 5))
+      setDemoMode(!shopStatus?.connected)
     } catch (e) {
       console.error(e)
     } finally {
@@ -84,6 +91,14 @@ export default function Dashboard() {
             Métricas e vendas em tempo real atualizadas via IA.
           </p>
         </div>
+        {demoMode && (
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-100 dark:bg-amber-500/10 border border-amber-300 dark:border-amber-500/20">
+            <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+            <span className="text-xs font-semibold text-amber-700 dark:text-amber-400">
+              Modo demonstração — dados abaixo são exemplos.
+            </span>
+          </div>
+        )}
         <div className="flex items-center gap-2">
           <Button
             asChild
