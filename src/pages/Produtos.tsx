@@ -83,9 +83,24 @@ export default function Produtos() {
         getProductCollections(),
         getSuppliers(),
       ])
-      setProducts(prods)
-      setCollections(colles)
-      setSuppliers(sups)
+      const normalizedProducts = Array.isArray(prods)
+        ? prods
+        : Array.isArray((prods as any)?.items)
+          ? (prods as any).items
+          : []
+      const normalizedCollections = Array.isArray(colles)
+        ? colles
+        : Array.isArray((colles as any)?.items)
+          ? (colles as any).items
+          : []
+      const normalizedSuppliers = Array.isArray(sups)
+        ? sups
+        : Array.isArray((sups as any)?.items)
+          ? (sups as any).items
+          : []
+      setProducts(normalizedProducts)
+      setCollections(normalizedCollections)
+      setSuppliers(normalizedSuppliers)
     } catch (e) {
       console.error(e)
     } finally {

@@ -1,4 +1,5 @@
 import pb from '@/lib/pocketbase/client'
+import type { ShopifyStatus } from '@/types'
 
 export type ShopifyConnectionStatus =
   | 'NOT_CONFIGURED'
@@ -7,22 +8,6 @@ export type ShopifyConnectionStatus =
   | 'AUTH_ERROR'
   | 'PERMISSION_ERROR'
   | 'API_ERROR'
-
-export interface ShopifyStatus {
-  connected: boolean
-  status: ShopifyConnectionStatus
-  storeDomain: string
-  apiVersion: string
-  shopName?: string
-  domain?: string
-  myshopifyDomain?: string
-  syncedProducts?: number
-  syncedOrders?: number
-  lastProductSync?: string
-  lastOrderSync?: string
-  verifiedAt?: string
-  message?: string
-}
 
 export interface SyncResult {
   created: number
@@ -41,14 +26,14 @@ export interface PublishResult {
   reused: boolean
 }
 
-export const getShopifyStatus = () =>
-  pb.send<ShopifyStatus>('/backend/v1/shopify/status', { method: 'GET' })
+export const getShopifyStatus = (): Promise<ShopifyStatus> =>
+  pb.send('/backend/v1/shopify/status', { method: 'GET' })
 
-export const syncProducts = () =>
-  pb.send<SyncResult>('/backend/v1/shopify/sync-products', { method: 'POST' })
+export const syncProducts = (): Promise<SyncResult> =>
+  pb.send('/backend/v1/shopify/sync-products', { method: 'POST' })
 
-export const syncOrders = () =>
-  pb.send<SyncResult>('/backend/v1/shopify/sync-orders', { method: 'POST' })
+export const syncOrders = (): Promise<SyncResult> =>
+  pb.send('/backend/v1/shopify/sync-orders', { method: 'POST' })
 
-export const publishProduct = (id: string) =>
-  pb.send<PublishResult>(`/backend/v1/shopify/publish/${id}`, { method: 'POST' })
+export const publishProduct = (id: string): Promise<PublishResult> =>
+  pb.send(`/backend/v1/shopify/publish/${id}`, { method: 'POST' })

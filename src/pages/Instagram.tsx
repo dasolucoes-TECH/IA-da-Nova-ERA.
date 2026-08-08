@@ -1,24 +1,28 @@
 import { useEffect, useState } from 'react'
-import { Instagram, Sparkles, Copy, Check, Image as ImageIcon, Play, Layers } from 'lucide-react'
+import { Instagram, Sparkles, Copy, Check, Save } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
-import { getProducts, ProductRecord } from '@/services/products'
+import { getProducts, updateProduct } from '@/services/products'
 import { generateInstagramContent } from '@/services/ai'
 import { toast } from '@/components/ui/use-toast'
+import type { ProductRecord, InstagramContent } from '@/types'
 
 export default function InstagramPage() {
   const [products, setProducts] = useState<ProductRecord[]>([])
   const [selectedProduct, setSelectedProduct] = useState<ProductRecord | null>(null)
   const [generating, setGenerating] = useState(false)
-  const [content, setContent] = useState<any>(null)
+  const [saving, setSaving] = useState(false)
+  const [content, setContent] = useState<InstagramContent | null>(null)
   const [copied, setCopied] = useState(false)
 
   useEffect(() => {
-    getProducts().then((data) => {
-      setProducts(data)
-      if (data.length > 0) setSelectedProduct(data[0])
+    getProducts().then((data: any) => {
+      const items = data.items || data
+      setProducts(items)
+      if (items.length > 0) setSelectedProduct(items[0])
     })
   }, [])
 
@@ -26,9 +30,13 @@ export default function InstagramPage() {
     if (!selectedProduct) return
     setGenerating(true)
     try {
-      const res = await generateInstagramContent(selectedProduct.name, selectedProduct.price)
+      const res = await generateInstagramContent(
+        selectedProduct.name,
+        selectedProduct.price,
+        selectedProduct.description,
+      )
       setContent(res)
-      toast({ title: 'Conteúdo de Instagram gerado!' })
+      toast({ title: 'Conteúdo gerado!' })
     } catch (e: any) {
       toast({ title: 'Erro', description: e.message, variant: 'destructive' })
     } finally {
@@ -39,8 +47,24 @@ export default function InstagramPage() {
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text)
     setCopied(true)
-    toast({ title: 'Copiado para a área de transferência!' })
+    toast({ title: 'Copiado!' })
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  const handleSaveToProduct = async () => {
+    if (!selectedProduct || !content) return
+    setSaving(true)
+    try {
+      await updateProduct(selectedProduct.id, {
+        instagram_caption: content.caption,
+        instagram_hashtags: content.hashtags,
+      })
+      toast({ title: 'Conteúdo salvo no produto!' })
+    } catch (e: any) {
+      toast({ title: 'Erro', description: e.message, variant: 'destructive' })
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -48,18 +72,31 @@ export default function InstagramPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Instagram Studio IA</h1>
-          <p className="text-xs text-slate-500">
-            Crie legendas, carrosséis, scripts de Reels e Stories persuasivos.
-          </p>
+          <p className="text-xs text-slate-500">Crie legendas, carrosséis e scripts persuasivos.</p>
+          <Badge variant="outline" className="text-[10px] mt-1">
+            Gerador de conteúdo
+          </Badge>
         </div>
-        <Button
-          onClick={handleGenerate}
-          disabled={generating || !selectedProduct}
-          className="bg-gradient-to-r from-pink-500 to-purple-600 text-white font-bold hover:opacity-90 rounded-xl"
-        >
-          <Sparkles className="w-4 h-4 mr-2" />
-          {generating ? 'Gerando Conteúdo...' : 'Gerar para este Produto'}
-        </Button>
+        <div className="flex gap-2">
+          {content && (
+            <Button
+              onClick={handleSaveToProduct}
+              disabled={saving}
+              variant="outline"
+              className="rounded-xl"
+            >
+              <Save className="w-3.5 h-3.5 mr-1" /> {saving ? 'Salvando...' : 'Salvar no produto'}
+            </Button>
+          )}
+          <Button
+            onClick={handleGenerate}
+            disabled={generating || !selectedProduct}
+            className="bg-gradient-to-r from-pink-500 to-purple-600 text-white font-bold hover:opacity-90 rounded-xl"
+          >
+            <Sparkles className="w-4 h-4 mr-2" />{' '}
+            {generating ? 'Gerando...' : 'Gerar para este Produto'}
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -87,7 +124,7 @@ export default function InstagramPage() {
 
         <Card className="lg:col-span-2 rounded-2xl border-0 shadow-elevation bg-white dark:bg-[#071B3B]">
           <CardHeader>
-            <CardTitle className="text-sm font-bold">2. Conteúdo e Mídias Geradas</CardTitle>
+            <CardTitle className="text-sm font-bold">2. Conteúdo Gerado</CardTitle>
           </CardHeader>
           <CardContent>
             {content ? (
@@ -96,13 +133,12 @@ export default function InstagramPage() {
                   <TabsTrigger value="caption">Legenda</TabsTrigger>
                   <TabsTrigger value="stories">Stories</TabsTrigger>
                   <TabsTrigger value="carousel">Carrossel</TabsTrigger>
-                  <TabsTrigger value="reels">Reels Script</TabsTrigger>
+                  <TabsTrigger value="reels">Reels</TabsTrigger>
                 </TabsList>
-
                 <TabsContent value="caption" className="space-y-3">
                   <Textarea
                     value={content.caption}
-                    readOnly
+                    onChange={(e) => setContent({ ...content, caption: e.target.value })}
                     rows={6}
                     className="rounded-xl text-xs"
                   />
@@ -116,7 +152,6 @@ export default function InstagramPage() {
                     </Button>
                   </div>
                 </TabsContent>
-
                 <TabsContent value="stories" className="space-y-2">
                   {content.stories?.map((st: string, idx: number) => (
                     <div
@@ -126,8 +161,15 @@ export default function InstagramPage() {
                       <strong>Tela {idx + 1}:</strong> {st}
                     </div>
                   ))}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => copyToClipboard(content.stories.join('\n'))}
+                    className="mt-2 rounded-xl"
+                  >
+                    <Copy className="w-3.5 h-3.5 mr-1" /> Copiar Roteiro
+                  </Button>
                 </TabsContent>
-
                 <TabsContent value="carousel" className="space-y-2">
                   {content.carousel?.map((c: string, idx: number) => (
                     <div
@@ -138,14 +180,21 @@ export default function InstagramPage() {
                     </div>
                   ))}
                 </TabsContent>
-
                 <TabsContent value="reels" className="space-y-3">
                   <Textarea
                     value={content.reels_script}
-                    readOnly
+                    onChange={(e) => setContent({ ...content, reels_script: e.target.value })}
                     rows={6}
                     className="rounded-xl text-xs font-mono"
                   />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => copyToClipboard(content.reels_script)}
+                    className="rounded-xl"
+                  >
+                    <Copy className="w-3.5 h-3.5 mr-1" /> Copiar Roteiro
+                  </Button>
                 </TabsContent>
               </Tabs>
             ) : (

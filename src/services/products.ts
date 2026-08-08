@@ -1,41 +1,13 @@
 import pb from '@/lib/pocketbase/client'
+import type { ProductRecord } from '@/types'
 
-export interface ProductRecord {
-  id: string
-  name: string
-  description?: string
-  price: number
-  cost?: number
-  stock: number
-  supplier?: string
-  collection?: string
-  status: 'rascunho' | 'publicado'
-  images?: string[]
-  slug?: string
-  seo_title?: string
-  meta_description?: string
-  keywords?: string
-  alt_text?: string
-  faq?: any
-  benefits?: any
-  specifications?: any
-  instagram_caption?: string
-  instagram_hashtags?: string
-  stories?: string
-  carousel?: string
-  email_marketing?: string
-  sales_count?: number
-  shopify_id?: string
-  shopify_draft_id?: string
-  created?: string
-  updated?: string
-  expand?: {
-    supplier?: { id: string; name: string }
-    collection?: { id: string; name: string }
-  }
-}
+export const getProducts = (page: number = 1, perPage: number = 50) =>
+  pb.collection('products').getList<ProductRecord>(page, perPage, {
+    sort: '-created',
+    expand: 'supplier,collection',
+  })
 
-export const getProducts = () =>
+export const getAllProducts = () =>
   pb.collection('products').getFullList<ProductRecord>({
     sort: '-created',
     expand: 'supplier,collection',
@@ -65,7 +37,7 @@ export const generateProductAIContent = (data: {
   price?: number
   cost?: number
   supplierName?: string
-}) =>
+}): Promise<Partial<ProductRecord>> =>
   pb.send('/backend/v1/products/generate', {
     method: 'POST',
     body: JSON.stringify(data),

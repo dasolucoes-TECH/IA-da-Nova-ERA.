@@ -40,8 +40,8 @@ export default function Marketing() {
         coupon_code: coupon,
         discount_percent: discount,
         spend,
-        status: 'active',
-        description: `Cupom de ${discount}% de desconto.`,
+        status: 'draft',
+        description: `Cupom de ${discount}% de desconto. Planejamento de campanha — somente Nova Era AI.`,
       })
       toast({ title: 'Campanha criada com sucesso!' })
       setModalOpen(false)
@@ -80,7 +80,7 @@ export default function Marketing() {
               <Badge
                 className={c.status === 'active' ? 'bg-emerald-500 text-white' : 'bg-slate-400'}
               >
-                {c.status}
+                {c.status === 'draft' ? 'Somente Nova Era AI' : c.status}
               </Badge>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -145,7 +145,7 @@ export default function Marketing() {
               onClick={handleCreate}
               className="bg-[#FFC400] text-[#071B3B] font-bold hover:bg-amber-400 rounded-xl w-full"
             >
-              Salvar e Ativar Campanha
+              Salvar Campanha (Rascunho)
             </Button>
           </DialogFooter>
         </DialogContent>

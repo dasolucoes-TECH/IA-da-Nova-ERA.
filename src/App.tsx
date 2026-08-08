@@ -17,6 +17,7 @@ import AnalyticsPage from './pages/AnalyticsPage'
 import BannersPage from './pages/BannersPage'
 import IaPage from './pages/IaPage'
 import Configuracoes from './pages/Configuracoes'
+import IntegrationsPage from './pages/IntegrationsPage'
 import NotFound from './pages/NotFound'
 
 const App = () => (
@@ -43,6 +44,7 @@ const App = () => (
             <Route path="/analytics" element={<AnalyticsPage />} />
             <Route path="/banners" element={<BannersPage />} />
             <Route path="/ia" element={<IaPage />} />
+            <Route path="/integracoes" element={<IntegrationsPage />} />
             <Route path="/configuracoes" element={<Configuracoes />} />
           </Route>
           <Route path="*" element={<NotFound />} />

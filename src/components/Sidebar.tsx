@@ -11,6 +11,7 @@ import {
   Bot,
   Settings,
   Sparkles,
+  Plug,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -24,6 +25,7 @@ export const navItems = [
   { label: 'Analytics', icon: BarChart3, path: '/analytics' },
   { label: 'Banners', icon: ImageIcon, path: '/banners' },
   { label: 'IA', icon: Bot, path: '/ia' },
+  { label: 'Integrações', icon: Plug, path: '/integracoes' },
   { label: 'Configurações', icon: Settings, path: '/configuracoes' },
 ]
 

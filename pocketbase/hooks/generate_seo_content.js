@@ -2,38 +2,36 @@ routerAdd(
   'POST',
   '/backend/v1/content/seo',
   (e) => {
-    const body = e.requestInfo().body || {}
-    const { productName, productDescription } = body
-
-    if (!productName) {
-      return e.badRequestError('productName é obrigatório')
-    }
-
-    const prompt = `Gere os dados de SEO otimizados para e-commerce do produto "${productName}" (Descrição: ${productDescription || 'N/A'}).
-Responda ESTRITAMENTE em formato JSON com:
-{
-  "seo_title": "título chamativo SEO (máx 60 caracteres)",
-  "meta_description": "meta descrição altamente clicável (máx 155 caracteres)",
-  "keywords": "termo 1, termo 2, termo 3",
-  "alt_text": "descrição da foto do produto",
-  "slug": "nome-do-produto-url",
-  "schema": {
-    "@context": "https://schema.org/",
-    "@type": "Product",
-    "name": "${productName}"
-  }
-}`
-
     try {
-      const aiReply = $ai.chat({
+      var body = e.requestInfo().body || {}
+      var productName = (body.productName || '').trim()
+      var productDescription = (body.productDescription || '').trim()
+
+      if (!productName) return e.badRequestError('productName é obrigatório')
+      if (productName.length > 200) return e.badRequestError('productName muito longo')
+
+      var prompt =
+        'Gere dados SEO para e-commerce do produto "' +
+        productName +
+        '". Descrição: ' +
+        (productDescription || 'N/A') +
+        '.\n'
+      prompt += 'NÃO invente especificações ou claims. Use apenas os fatos fornecidos.\n'
+      prompt += 'Responda em JSON válido (sem markdown):\n'
+      prompt +=
+        '{"seo_title":"título SEO máx 60 chars","meta_description":"meta descrição máx 155 chars","keywords":"termo1, termo2","alt_text":"descrição da imagem","slug":"slug-url","schema":{"@context":"https://schema.org/","@type":"Product","name":"' +
+        productName +
+        '"}}'
+
+      var aiReply = $ai.chat({
         model: 'fast',
         messages: [
-          { role: 'system', content: 'Responda exclusivamente com o objeto JSON solicitado.' },
+          { role: 'system', content: 'Responda exclusivamente com JSON válido.' },
           { role: 'user', content: prompt },
         ],
       })
 
-      let text = aiReply.choices[0].message.content.trim()
+      var text = aiReply.choices[0].message.content.trim()
       if (text.startsWith('```json'))
         text = text
           .replace(/^```json\s*/, '')
@@ -45,7 +43,36 @@ Responda ESTRITAMENTE em formato JSON com:
           .replace(/```$/, '')
           .trim()
 
-      return e.json(200, JSON.parse(text))
+      var data
+      try {
+        data = JSON.parse(text)
+      } catch (_) {
+        var repairReply = $ai.chat({
+          model: 'fast',
+          messages: [
+            { role: 'system', content: 'Corrija o JSON. Retorne apenas JSON.' },
+            { role: 'user', content: text },
+          ],
+        })
+        var repairedText = repairReply.choices[0].message.content.trim()
+        if (repairedText.startsWith('```json'))
+          repairedText = repairedText
+            .replace(/^```json\s*/, '')
+            .replace(/```$/, '')
+            .trim()
+        if (repairedText.startsWith('```'))
+          repairedText = repairedText
+            .replace(/^```\s*/, '')
+            .replace(/```$/, '')
+            .trim()
+        try {
+          data = JSON.parse(repairedText)
+        } catch (_) {
+          return e.json(422, { error: 'A IA retornou um formato inválido. Tente novamente.' })
+        }
+      }
+
+      return e.json(200, data)
     } catch (err) {
       return e.internalServerError('Erro ao gerar SEO: ' + String(err))
     }

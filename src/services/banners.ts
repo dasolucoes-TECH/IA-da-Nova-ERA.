@@ -1,15 +1,5 @@
 import pb from '@/lib/pocketbase/client'
-
-export interface BannerRecord {
-  id: string
-  title: string
-  subtitle?: string
-  link?: string
-  position: 'hero' | 'promo' | 'footer'
-  active: boolean
-  image?: string
-  created: string
-}
+import type { BannerRecord } from '@/types'
 
 export const getBanners = () =>
   pb.collection('banners').getFullList<BannerRecord>({ sort: '-created' })

@@ -3,34 +3,64 @@ routerAdd(
   '/backend/v1/shopify/sync-orders',
   (e) => {
     try {
-      var clientId = $secrets.get('SHOPIFY_CLIENT_ID') || ''
-      var clientSecret = $secrets.get('SHOPIFY_CLIENT_SECRET') || ''
-      var domain = $secrets.get('SHOPIFY_STORE_DOMAIN') || ''
-      var apiVersion = $secrets.get('SHOPIFY_API_VERSION') || '2024-10'
-
-      if (!clientId) {
-        return e.json(400, { error: 'SHOPIFY_CLIENT_ID não configurado.' })
-      }
-      if (!clientSecret) {
-        return e.json(400, { error: 'SHOPIFY_CLIENT_SECRET não configurado.' })
-      }
-      if (!domain) {
-        return e.json(400, { error: 'SHOPIFY_STORE_DOMAIN não configurado.' })
+      function normalizeDomain(domain) {
+        if (!domain) return ''
+        return domain
+          .trim()
+          .toLowerCase()
+          .replace(/^https?:\/\//, '')
+          .replace(/\/.*$/, '')
       }
 
-      var cleanDomain = domain
-        .trim()
-        .toLowerCase()
-        .replace(/^https?:\/\//, '')
-        .replace(/\/.*$/, '')
-
-      if (!cleanDomain.match(/^[a-z0-9][a-z0-9\-]*\.myshopify\.com$/)) {
-        return e.json(400, {
-          error: 'Use o domínio interno da Shopify no formato nomedaloja.myshopify.com.',
-        })
+      function getConfig() {
+        var clientId = $secrets.get('SHOPIFY_CLIENT_ID') || ''
+        var clientSecret = $secrets.get('SHOPIFY_CLIENT_SECRET') || ''
+        var domain = $secrets.get('SHOPIFY_STORE_DOMAIN') || ''
+        var apiVersion = $secrets.get('SHOPIFY_API_VERSION') || ''
+        return {
+          clientId: clientId,
+          clientSecret: clientSecret,
+          domain: domain,
+          apiVersion: apiVersion,
+          configured: clientId !== '' && clientSecret !== '' && domain !== '' && apiVersion !== '',
+        }
       }
 
-      function getAccessToken() {
+      function getStore() {
+        try {
+          var stores = $app.findRecordsByFilter('stores', "id != ''", 'created', 1, 0)
+          if (stores.length > 0) return stores[0]
+        } catch (_) {}
+        return null
+      }
+
+      function getAccessToken(storeRecord) {
+        var now = new Date()
+        var fiveMinLater = new Date(now.getTime() + 5 * 60 * 1000)
+
+        if (storeRecord) {
+          var cachedToken = storeRecord.getString('cached_token')
+          var expiresAtStr = storeRecord.getString('token_expires_at')
+          if (cachedToken && expiresAtStr) {
+            try {
+              var expiresAt = new Date(expiresAtStr)
+              if (expiresAt > fiveMinLater) {
+                return {
+                  token: cachedToken,
+                  fromCache: true,
+                  scopes: storeRecord.getString('cached_scopes') || '',
+                }
+              }
+            } catch (_) {}
+          }
+        }
+
+        var config = getConfig()
+        if (!config.configured) {
+          throw new Error('Shopify não configurado')
+        }
+
+        var cleanDomain = normalizeDomain(config.domain)
         var tokenRes = $http.send({
           url: 'https://' + cleanDomain + '/admin/oauth/access_token',
           method: 'POST',
@@ -40,34 +70,48 @@ routerAdd(
           },
           body:
             'grant_type=client_credentials&client_id=' +
-            clientId +
+            encodeURIComponent(config.clientId) +
             '&client_secret=' +
-            clientSecret,
+            encodeURIComponent(config.clientSecret),
           timeout: 15,
         })
-        if (tokenRes.statusCode === 401) {
-          throw new Error('Client ID ou Client Secret inválido.')
-        }
-        if (tokenRes.statusCode === 403) {
-          throw new Error(
-            'O aplicativo não possui permissão suficiente ou não está instalado corretamente na loja.',
-          )
-        }
+
         if (tokenRes.statusCode !== 200) {
-          throw new Error(
-            'Shopify respondeu com status ' + tokenRes.statusCode + ' ao gerar token.',
-          )
+          throw new Error('Shopify respondeu status ' + tokenRes.statusCode + ' ao gerar token')
         }
-        var td = tokenRes.json
-        if (!td.access_token) {
-          throw new Error('Token de acesso não recebido da Shopify.')
+
+        var tokenData = tokenRes.json
+        if (!tokenData.access_token) {
+          throw new Error('Token de acesso não recebido')
         }
-        return td.access_token
+
+        var expiresIn = tokenData.expires_in || 3600
+        var expiry = new Date(now.getTime() + expiresIn * 1000)
+
+        if (storeRecord) {
+          storeRecord.set('cached_token', tokenData.access_token)
+          storeRecord.set('token_expires_at', expiry.toISOString())
+          if (tokenData.scope) {
+            storeRecord.set('cached_scopes', tokenData.scope)
+          }
+          $app.save(storeRecord)
+        }
+
+        return { token: tokenData.access_token, fromCache: false, scopes: tokenData.scope || '' }
       }
 
-      function runGraphQL(query, variables, token) {
+      function shopifyGraphQL(query, variables, storeRecord, isRetry) {
+        var config = getConfig()
+        if (!config.configured) {
+          throw new Error('Shopify não configurado')
+        }
+
+        var cleanDomain = normalizeDomain(config.domain)
+        var tokenResult = getAccessToken(storeRecord)
+        var token = tokenResult.token
+
         var res = $http.send({
-          url: 'https://' + cleanDomain + '/admin/api/' + apiVersion + '/graphql.json',
+          url: 'https://' + cleanDomain + '/admin/api/' + config.apiVersion + '/graphql.json',
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -76,159 +120,206 @@ routerAdd(
           body: JSON.stringify({ query: query, variables: variables || {} }),
           timeout: 30,
         })
+
+        if (res.statusCode === 401 && !isRetry) {
+          if (storeRecord) {
+            storeRecord.set('cached_token', '')
+            storeRecord.set('token_expires_at', '')
+            $app.save(storeRecord)
+          }
+          return shopifyGraphQL(query, variables, storeRecord, true)
+        }
+
+        if (res.statusCode === 429) {
+          throw new Error('Rate limit Shopify. Tente novamente em alguns segundos.')
+        }
+
         return res
       }
 
-      var accessToken
-      try {
-        accessToken = getAccessToken()
-      } catch (err) {
-        return e.json(400, { error: String(err) })
+      function parseErrors(body) {
+        if (!body) return []
+        var errors = []
+        if (body.errors) {
+          var errStr = JSON.stringify(body.errors)
+          if (errStr.indexOf('ACCESS_DENIED') !== -1) {
+            errors.push('Permissão Shopify insuficiente')
+          } else {
+            errors.push('Erro GraphQL: ' + errStr)
+          }
+        }
+        return errors
       }
 
-      var ordersQuery =
-        'query SyncOrders { orders(first: 50) { edges { node { id name displayFulfillmentStatus displayFinancialStatus totalPrice email createdAt updatedAt customer { firstName lastName } lineItems(first: 50) { edges { node { name quantity originalUnitPrice } } } } } } }'
-
-      var graphQLRes
-      try {
-        graphQLRes = runGraphQL(ordersQuery, {}, accessToken)
-      } catch (err) {
-        return e.json(502, {
-          error: 'Falha de rede ao buscar pedidos: ' + String(err),
-        })
-      }
-
-      if (graphQLRes.statusCode === 401) {
+      function logSync(storeId, syncType, status, counts, errs) {
         try {
-          accessToken = getAccessToken()
-          graphQLRes = runGraphQL(ordersQuery, {}, accessToken)
-        } catch (retryErr) {
-          return e.json(401, {
-            error: 'Token renovado mas falha persiste: ' + String(retryErr),
-          })
-        }
+          var syncCol = $app.findCollectionByNameOrId('integration_syncs')
+          var syncRec = new Record(syncCol)
+          syncRec.set('store', storeId)
+          syncRec.set('sync_type', syncType)
+          syncRec.set('status', status)
+          syncRec.set('started_at', new Date().toISOString())
+          syncRec.set('completed_at', new Date().toISOString())
+          syncRec.set('records_processed', counts.processed || 0)
+          syncRec.set('records_created', counts.created || 0)
+          syncRec.set('records_updated', counts.updated || 0)
+          syncRec.set('errors', JSON.stringify(errs || []))
+          $app.save(syncRec)
+        } catch (_) {}
       }
 
-      if (graphQLRes.statusCode !== 200) {
-        return e.json(graphQLRes.statusCode, {
-          error: 'Shopify retornou status ' + graphQLRes.statusCode + ' ao buscar pedidos.',
-        })
-      }
-
-      var body
-      try {
-        body = graphQLRes.json
-      } catch (_) {
-        return e.json(500, { error: 'Resposta inválida do Shopify.' })
-      }
-
-      if (body.errors) {
-        var errStr = JSON.stringify(body.errors)
-        if (errStr.indexOf('ACCESS_DENIED') !== -1) {
-          return e.json(200, {
-            created: 0,
-            updated: 0,
-            total: 0,
-            errors: [],
-            status: 'permission_required',
-            message:
-              'A permissão read_orders não foi autorizada na Shopify. Acesse o painel de Custom Apps e approve o escopo read_orders para sincronizar pedidos.',
-          })
-        }
-        return e.json(400, { error: 'Erro GraphQL: ' + errStr })
-      }
-
-      var edges = body.data && body.data.orders ? body.data.orders.edges : []
-      var created = 0
-      var updated = 0
-      var errors = []
+      var storeRecord = getStore()
+      if (!storeRecord) return e.json(400, { error: 'Nenhuma loja configurada' })
 
       var orderCol = $app.findCollectionByNameOrId('orders')
+      var storesId = storeRecord.id
 
-      for (var i = 0; i < edges.length; i++) {
-        var so = edges[i].node
-        var shopifyId = so.id
-        var existing = null
-        try {
-          existing = $app.findFirstRecordByData('orders', 'shopify_id', shopifyId)
-        } catch (_) {}
+      var created = 0
+      var updated = 0
+      var total = 0
+      var errors = []
+      var hasNextPage = true
+      var cursor = null
 
-        var financialStatus = so.displayFinancialStatus || ''
-        var mappedStatus = 'pending'
-        if (financialStatus === 'PAID') {
-          mappedStatus = 'paid'
-        } else if (financialStatus === 'REFUNDED' || financialStatus === 'VOIDED') {
-          mappedStatus = 'cancelled'
+      while (hasNextPage) {
+        var query =
+          'query SyncOrders($cursor: String) { orders(first: 100, after: $cursor) { edges { node { id name displayFulfillmentStatus displayFinancialStatus totalPrice currencyCode createdAt updatedAt lineItems(first: 100) { edges { node { title quantity originalUnitPrice product { id } variant { id sku } } } } } } pageInfo { hasNextPage endCursor } } }'
+
+        var graphQLRes = shopifyGraphQL(query, { cursor: cursor }, storeRecord)
+
+        if (graphQLRes.statusCode !== 200) {
+          errors.push({ error: 'Shopify status ' + graphQLRes.statusCode })
+          break
         }
 
-        var fulfillmentStatus = so.displayFulfillmentStatus || ''
-        if (fulfillmentStatus === 'FULFILLED' && mappedStatus === 'paid') {
-          mappedStatus = 'delivered'
-        } else if (fulfillmentStatus === 'PARTIALLY_FULFILLED' && mappedStatus !== 'cancelled') {
-          mappedStatus = 'shipped'
-        }
-
-        var lineItemEdges = so.lineItems && so.lineItems.edges ? so.lineItems.edges : []
-        var items = []
-        for (var j = 0; j < lineItemEdges.length; j++) {
-          var li = lineItemEdges[j].node
-          items.push({
-            product_name: li.name || '',
-            quantity: li.quantity || 1,
-            price: parseFloat(li.originalUnitPrice) || 0,
-          })
-        }
-
-        var customerName = ''
-        if (so.customer) {
-          customerName = ((so.customer.firstName || '') + ' ' + (so.customer.lastName || '')).trim()
-        }
-        var orderNumber = so.name || ''
-
-        if (existing) {
-          existing.set('order_number', orderNumber || existing.getString('order_number'))
-          existing.set('customer_name', customerName || existing.getString('customer_name'))
-          existing.set('customer_email', so.email || existing.getString('customer_email'))
-          existing.set('total', parseFloat(so.totalPrice) || 0)
-          existing.set('status', mappedStatus)
-          existing.set('items', JSON.stringify(items))
-          existing.set('source', 'shopify')
-          try {
-            $app.save(existing)
-            updated++
-          } catch (saveErr) {
-            errors.push({ order: so.name, error: String(saveErr) })
+        var body = graphQLRes.json
+        var gqlErrors = parseErrors(body)
+        if (gqlErrors.length > 0) {
+          if (gqlErrors[0].indexOf('Permissão') !== -1) {
+            return e.json(200, {
+              created: 0,
+              updated: 0,
+              total: 0,
+              errors: [],
+              status: 'permission_required',
+              message: 'A permissão read_orders não foi autorizada na Shopify.',
+            })
           }
-        } else {
+          errors.push({ error: gqlErrors.join('; ') })
+          break
+        }
+
+        var ordersData =
+          body.data && body.data.orders
+            ? body.data.orders
+            : { edges: [], pageInfo: { hasNextPage: false } }
+        var edges = ordersData.edges || []
+        total += edges.length
+
+        for (var i = 0; i < edges.length; i++) {
+          var so = edges[i].node
+          var shopifyId = so.id
+          var existing = null
           try {
-            var rec = new Record(orderCol)
-            rec.set('order_number', orderNumber)
-            rec.set('customer_name', customerName)
-            rec.set('customer_email', so.email || '')
-            rec.set('total', parseFloat(so.totalPrice) || 0)
-            rec.set('status', mappedStatus)
-            rec.set('items', JSON.stringify(items))
-            rec.set('source', 'shopify')
-            rec.set('shopify_id', shopifyId)
-            $app.save(rec)
-            created++
-          } catch (saveErr) {
-            errors.push({ order: so.name, error: String(saveErr) })
+            existing = $app.findFirstRecordByFilter(
+              'orders',
+              'shopify_id = {:sid} && store = {:st}',
+              { sid: shopifyId, st: storesId },
+            )
+          } catch (_) {}
+
+          var items = []
+          var lineItemEdges = so.lineItems && so.lineItems.edges ? so.lineItems.edges : []
+          for (var j = 0; j < lineItemEdges.length; j++) {
+            var li = lineItemEdges[j].node
+            items.push({
+              title: li.title || '',
+              quantity: li.quantity || 1,
+              price: parseFloat(li.originalUnitPrice) || 0,
+              shopify_product_id: li.product && li.product.id ? li.product.id : '',
+              shopify_variant_id: li.variant && li.variant.id ? li.variant.id : '',
+              sku: li.variant && li.variant.sku ? li.variant.sku : '',
+            })
+          }
+
+          var financialStatus = so.displayFinancialStatus || ''
+          var fulfillmentStatus = so.displayFulfillmentStatus || ''
+          var normalizedStatus = 'pending'
+          if (financialStatus === 'PAID') normalizedStatus = 'paid'
+          else if (financialStatus === 'REFUNDED' || financialStatus === 'VOIDED')
+            normalizedStatus = 'cancelled'
+
+          if (existing) {
+            existing.set('order_number', so.name || existing.getString('order_number'))
+            existing.set('total', parseFloat(so.totalPrice) || 0)
+            existing.set('currency', so.currencyCode || '')
+            existing.set('financial_status', financialStatus)
+            existing.set('fulfillment_status', fulfillmentStatus)
+            existing.set('status', normalizedStatus)
+            existing.set('items', JSON.stringify(items))
+            existing.set('source', 'shopify')
+            existing.set('data_origin', 'shopify')
+            if (so.createdAt) existing.set('created_at_shopify', so.createdAt)
+            if (so.updatedAt) existing.set('updated_at_shopify', so.updatedAt)
+            try {
+              $app.save(existing)
+              updated++
+            } catch (saveErr) {
+              errors.push({ order: so.name, error: String(saveErr) })
+            }
+          } else {
+            try {
+              var rec = new Record(orderCol)
+              rec.set('order_number', so.name || '')
+              rec.set('customer_name', '')
+              rec.set('customer_email', '')
+              rec.set('total', parseFloat(so.totalPrice) || 0)
+              rec.set('currency', so.currencyCode || '')
+              rec.set('financial_status', financialStatus)
+              rec.set('fulfillment_status', fulfillmentStatus)
+              rec.set('status', normalizedStatus)
+              rec.set('items', JSON.stringify(items))
+              rec.set('source', 'shopify')
+              rec.set('shopify_id', shopifyId)
+              rec.set('store', storesId)
+              rec.set('data_origin', 'shopify')
+              if (so.createdAt) rec.set('created_at_shopify', so.createdAt)
+              if (so.updatedAt) rec.set('updated_at_shopify', so.updatedAt)
+              $app.save(rec)
+              created++
+            } catch (saveErr) {
+              errors.push({ order: so.name, error: String(saveErr) })
+            }
           }
         }
+
+        var pageInfo = ordersData.pageInfo || { hasNextPage: false }
+        hasNextPage = pageInfo.hasNextPage || false
+        cursor = pageInfo.endCursor || null
       }
+
+      if (storeRecord) {
+        storeRecord.set('last_order_sync', new Date().toISOString())
+        $app.save(storeRecord)
+      }
+
+      logSync(
+        storesId,
+        'orders',
+        'success',
+        { processed: total, created: created, updated: updated },
+        errors,
+      )
 
       return e.json(200, {
         created: created,
         updated: updated,
-        total: edges.length,
+        total: total,
         errors: errors,
         status: 'success',
       })
     } catch (err) {
-      return e.json(500, {
-        error: 'Erro na sincronização de pedidos: ' + String(err),
-      })
+      return e.json(500, { error: 'Erro na sincronização de pedidos: ' + String(err) })
     }
   },
   $apis.requireAuth(),

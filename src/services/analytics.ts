@@ -1,24 +1,12 @@
 import pb from '@/lib/pocketbase/client'
+import type { AnalyticsSummary } from '@/types'
 
-export interface AnalyticsSummary {
-  totalRevenue: number
-  totalOrders: number
-  paidOrdersCount: number
-  ticketMedio: number
-  conversionRate: number
-  totalSpend: number
-  cac: number
-  roi: number
-  visitsCount: number
-  lowStockProducts: Array<{ id: string; name: string; stock: number; price: number }>
-  topProducts: Array<{
-    id: string
-    name: string
-    sales_count: number
-    price: number
-    stock: number
-  }>
-}
-
-export const getAnalyticsSummary = (): Promise<AnalyticsSummary> =>
-  pb.send('/backend/v1/analytics/summary', { method: 'GET' })
+export const getAnalyticsSummary = (
+  period: number = 7,
+  includeDemo: boolean = false,
+): Promise<AnalyticsSummary> =>
+  pb.send('/backend/v1/analytics/summary', {
+    method: 'POST',
+    body: JSON.stringify({ period, includeDemo }),
+    headers: { 'Content-Type': 'application/json' },
+  })

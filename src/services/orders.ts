@@ -1,19 +1,10 @@
 import pb from '@/lib/pocketbase/client'
+import type { OrderRecord } from '@/types'
 
-export interface OrderRecord {
-  id: string
-  order_number: string
-  customer_name: string
-  customer_email: string
-  total: number
-  status: 'pending' | 'paid' | 'shipped' | 'delivered' | 'cancelled'
-  items: any
-  source: string
-  created: string
-  updated: string
-}
+export const getOrders = (page: number = 1, perPage: number = 50) =>
+  pb.collection('orders').getList<OrderRecord>(page, perPage, { sort: '-created' })
 
-export const getOrders = () =>
+export const getAllOrders = () =>
   pb.collection('orders').getFullList<OrderRecord>({ sort: '-created' })
 
 export const updateOrderStatus = (id: string, status: OrderRecord['status']) =>

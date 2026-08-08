@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/use-auth'
 import { Button } from '@/components/ui/button'
@@ -13,13 +13,15 @@ export default function Index() {
   const navigate = useNavigate()
   const [isSignUp, setIsSignUp] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [email, setEmail] = useState('dasolucoestst@gmail.com')
-  const [password, setPassword] = useState('Skip@Pass')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [name, setName] = useState('')
 
-  if (isAuthenticated) {
-    navigate('/dashboard', { replace: true })
-  }
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/dashboard', { replace: true })
+    }
+  }, [isAuthenticated, navigate])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -166,13 +168,9 @@ export default function Index() {
             </form>
 
             <div className="text-center pt-2 border-t border-slate-100 dark:border-white/10">
-              <button
-                type="button"
-                onClick={() => setIsSignUp(!isSignUp)}
-                className="text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-[#071B3B] dark:hover:text-[#FFC400] transition-colors"
-              >
-                {isSignUp ? 'Já possui uma conta? Faça Login' : 'Não tem uma conta? Crie agora'}
-              </button>
+              <p className="text-[10px] text-slate-400">
+                Acesso restrito a lojistas autorizados. Novos membros são adicionados por convite.
+              </p>
             </div>
           </CardContent>
         </Card>

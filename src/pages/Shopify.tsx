@@ -27,7 +27,7 @@ import {
   type ShopifyStatus,
   type ShopifyConnectionStatus,
 } from '@/services/shopify'
-import { getProducts, type ProductRecord } from '@/services/products'
+import { getAllProducts, type ProductRecord } from '@/services/products'
 import { useRealtime } from '@/hooks/use-realtime'
 import { getErrorMessage } from '@/lib/pocketbase/errors'
 
@@ -101,10 +101,11 @@ export default function Shopify() {
 
   const loadProducts = useCallback(async () => {
     try {
-      const prods = await getProducts()
-      setProducts(prods)
+      const prods = await getAllProducts()
+      setProducts(Array.isArray(prods) ? prods : [])
     } catch (e) {
       console.error(e)
+      setProducts([])
     }
   }, [])
 

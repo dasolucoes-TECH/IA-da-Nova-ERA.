@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-07T23:48:29.404Z",
+  "generatedAt": "2026-08-08T00:59:02.715Z",
   "collections": [
     {
       "name": "users",
@@ -80,6 +80,12 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "shopify_collection_id",
+          "type": "text",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [
@@ -315,6 +321,12 @@
           "type": "text",
           "required": false,
           "system": false
+        },
+        {
+          "name": "vendor",
+          "type": "text",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [
@@ -394,6 +406,12 @@
         },
         {
           "name": "shopify_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "financial_status",
           "type": "text",
           "required": false,
           "system": false
@@ -611,6 +629,518 @@
       "indexes": [
         "CREATE INDEX idx_analytics_events_type ON analytics_events (event_type)",
         "CREATE INDEX idx_analytics_events_created ON analytics_events (created DESC)"
+      ]
+    },
+    {
+      "name": "stores",
+      "type": "base",
+      "apiRules": {
+        "list": "members.user = @request.auth.id",
+        "view": "members.user = @request.auth.id",
+        "create": "@request.auth.id != ''",
+        "update": "members.user = @request.auth.id",
+        "delete": "members.user = @request.auth.id && members.role = 'OWNER'"
+      },
+      "fields": [
+        {
+          "name": "name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "myshopify_domain",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "primary_domain",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "shopify_shop_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "shopify_shop_gid",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "api_version",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "connected",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "last_product_sync",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "last_order_sync",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "members",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "store_members"
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_stores_myshopify_domain ON stores (myshopify_domain) WHERE myshopify_domain != ''"
+      ]
+    },
+    {
+      "name": "store_members",
+      "type": "base",
+      "apiRules": {
+        "list": "user = @request.auth.id",
+        "view": "user = @request.auth.id",
+        "create": "@request.auth.id != ''",
+        "update": "user = @request.auth.id",
+        "delete": "user = @request.auth.id"
+      },
+      "fields": [
+        {
+          "name": "store",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "stores"
+        },
+        {
+          "name": "user",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "role",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["OWNER", "ADMIN", "EDITOR", "VIEWER"]
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": ["CREATE UNIQUE INDEX idx_store_members_store_user ON store_members (store, user)"]
+    },
+    {
+      "name": "action_logs",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "store",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "stores"
+        },
+        {
+          "name": "user",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "action_type",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "entity_type",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "entity_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["PROPOSED", "APPROVED", "EXECUTED", "FAILED", "CANCELLED"]
+        },
+        {
+          "name": "summary",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "before_snapshot",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "after_snapshot",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_action_logs_store ON action_logs (store)",
+        "CREATE INDEX idx_action_logs_created ON action_logs (created DESC)"
+      ]
+    },
+    {
+      "name": "integration_syncs",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "store",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "stores"
+        },
+        {
+          "name": "sync_type",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "started_at",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "completed_at",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "records_processed",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "records_created",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "records_updated",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "errors",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "meta",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_integration_syncs_store ON integration_syncs (store)",
+        "CREATE INDEX idx_integration_syncs_type ON integration_syncs (sync_type)"
+      ]
+    },
+    {
+      "name": "product_variants",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "store",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "stores"
+        },
+        {
+          "name": "product",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "products"
+        },
+        {
+          "name": "shopify_variant_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "title",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "sku",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "barcode",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "price",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "compare_at_price",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "inventory_quantity",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "inventory_item_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "selected_options",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "position",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created_at_shopify",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "updated_at_shopify",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_product_variants_store_shopify_id ON product_variants (store, shopify_variant_id) WHERE shopify_variant_id != ''",
+        "CREATE INDEX idx_product_variants_product ON product_variants (product)"
+      ]
+    },
+    {
+      "name": "product_media",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "store",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "stores"
+        },
+        {
+          "name": "product",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "products"
+        },
+        {
+          "name": "shopify_media_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "url",
+          "type": "url",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "alt",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "media_type",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "position",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_product_media_store_shopify_id ON product_media (store, shopify_media_id) WHERE shopify_media_id != ''",
+        "CREATE INDEX idx_product_media_product ON product_media (product)"
       ]
     }
   ]
